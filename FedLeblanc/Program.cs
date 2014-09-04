@@ -72,6 +72,7 @@ namespace Leblanc
             Config.SubMenu("Harass").AddItem(new MenuItem("UseQHarass", "Use Q").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseWHarass", "Use W").SetValue(false));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseEHarass", "Use E").SetValue(false));
+            Config.SubMenu("Harass").AddItem(new MenuItem("harassToggleQ", "Use Q (toggle)").SetValue<KeyBind>(new KeyBind('T', KeyBindType.Toggle)));
             Config.SubMenu("Harass")
                 .AddItem(
                     new MenuItem("HarassActive", "Harass!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
@@ -176,12 +177,16 @@ namespace Leblanc
                 if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
                     Harass();
 
+                if (Config.Item("harassToggleQ").GetValue<bool>())
+                    ToggleHarass();
+
                 var lc = Config.Item("LaneClearActive").GetValue<KeyBind>().Active;
                 if (lc || Config.Item("FreezeActive").GetValue<KeyBind>().Active)
                     Farm(lc);
 
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
                     JungleFarm();
+
             }
         }
 
@@ -232,6 +237,17 @@ namespace Leblanc
                 }
 
             }
+        }
+
+        private static void ToggleHarass()
+        {
+            var target = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Magical);
+
+            if (target != null && Q.IsReady())
+            {
+                Q.CastOnUnit(target);
+            }
+
         }
 
         private static void Harass()
