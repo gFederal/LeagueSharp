@@ -49,7 +49,7 @@ namespace Leblanc
             IgniteSlot = Player.GetSpellSlot("SummonerDot");
             DFG = Utility.Map.GetMap() == Utility.Map.MapType.TwistedTreeline ? new Items.Item(3188, 750) : new Items.Item(3128, 750);
 
-            W.SetSkillshot(0.25f, 240, float.MaxValue, false, SkillshotType.SkillshotCircle);
+            W.SetSkillshot(0.25f, 120f, 700f, false, SkillshotType.SkillshotCircle);
             E.SetSkillshot(0.25f, 60f, 1200f, true, SkillshotType.SkillshotLine);
 
             SpellList.AddRange(new[] { Q, W, E, R });
@@ -146,12 +146,16 @@ namespace Leblanc
         }
 
         private static void AntiGapcloser_OnEnemyGapcloser(ActiveGapcloser gapcloser)
-        {
-            E.Cast(gapcloser.Sender);
+        {            
+            PredictionOutput ePred = E.GetPrediction(gapcloser.Sender);
+            if (ePred.Hitchance >= HitChance.High)
+                E.Cast(ePred.CastPosition);
         }
         private static void Interrupter_OnPosibleToInterrupt(Obj_AI_Base unit, InterruptableSpell spell)
         {
-            E.Cast(unit);
+            PredictionOutput ePred = E.GetPrediction(unit);
+            if (ePred.Hitchance >= HitChance.High)
+                E.Cast(ePred.CastPosition);            
         }
 
         private static void Drawing_OnDraw(EventArgs args)
@@ -168,16 +172,27 @@ namespace Leblanc
 
         private static void Game_OnGameUpdate(EventArgs args)
         {
+            //Ignite
+            if (Player.Spellbook.GetSpell(Player.GetSpellSlot("SummonerDot")).State == SpellState.Ready)
+            {
+                var itarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
+
+                var igniteDmg = DamageLib.getDmg(itarget, DamageLib.SpellType.IGNITE);
+                if (igniteDmg+100 > itarget.Health)
+                {
+                    Player.SummonerSpellbook.CastSpell(IgniteSlot, itarget);
+                }
+            }
             if (Config.Item("ComboActive").GetValue<KeyBind>().Active)
             {
                 Combo();
             }
             else
-            {
+            { 
                 if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
                     Harass();
 
-                if (Config.Item("harassToggleQ").GetValue<bool>())
+                if (Config.Item("harassToggleQ").GetValue<KeyBind>().Active)
                     ToggleHarass();
 
                 var lc = Config.Item("LaneClearActive").GetValue<KeyBind>().Active;
@@ -187,7 +202,7 @@ namespace Leblanc
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
                     JungleFarm();
 
-            }
+            }            
         }
 
         private static void Combo()
@@ -220,16 +235,6 @@ namespace Leblanc
                         if (ePred.Hitchance >= HitChance.High)
                             E.Cast(ePred.CastPosition);
                     }
-                    //Ignite
-                    if (Player.Spellbook.GetSpell(Player.GetSpellSlot("SummonerDot")).State == SpellState.Ready)
-                    {
-                        var igniteDmg = DamageLib.getDmg(target, DamageLib.SpellType.IGNITE);
-                        if (igniteDmg > target.Health)
-                        {
-                            Player.SummonerSpellbook.CastSpell(IgniteSlot, target);
-                        }
-                    }
-
                 }
                 else if (DamageLib.getDmg(target, DamageLib.SpellType.Q) > target.Health)
                 {
@@ -272,21 +277,18 @@ namespace Leblanc
 
         private static void Farm(bool laneClear)
         {
-            if (!Orbwalking.CanMove(40)) return;
+            
             var allMinions = MinionManager.GetMinions(Player.ServerPosition, Q.Range);
             var minions = MinionManager.GetMinions(Player.Position, W.Range + W.Width / 2);
-            var useQi = Config.Item("UseQFarm").GetValue<StringList>().SelectedIndex;
-            var useWi = Config.Item("UseWFarm").GetValue<StringList>().SelectedIndex;
-            var useEi = Config.Item("UseEFarm").GetValue<StringList>().SelectedIndex;
+            // Spell usage
+            bool useQ = Q.IsReady() && Config.Item("UseQFarm").GetValue<bool>();
+            bool useW = W.IsReady() && Config.Item("UseWFarm").GetValue<bool>();
+            bool useE = E.IsReady() && Config.Item("UseEFarm").GetValue<bool>();
 
             var FMana = Config.Item("ManaFarm").GetValue<Slider>().Value;
-            var MPercent = Player.Mana * 100 / Player.MaxMana;
+            var MPercent = Player.Mana * 100 / Player.MaxMana;            
 
-            var useQ = (laneClear && (useQi == 1 || useQi == 2)) || (!laneClear && (useQi == 0 || useQi == 2));
-            var useW = (laneClear && (useWi == 1 || useWi == 2)) || (!laneClear && (useWi == 0 || useWi == 2));
-            var useE = (laneClear && (useEi == 1 || useEi == 2)) || (!laneClear && (useEi == 0 || useEi == 2));
-
-            if (useQ && Q.IsReady() && MPercent >= FMana)
+            if (useQ && MPercent >= FMana)
             {
                 foreach (var minion in allMinions)
                 {
@@ -300,7 +302,7 @@ namespace Leblanc
                     }
                 }
             }
-            else if (useW && W.IsReady() && MPercent >= FMana)
+            else if (useW && MPercent >= FMana)
             {
 
                 var farmLocation = MinionManager.GetBestCircularFarmLocation(minions.Select(minion => minion.ServerPosition.To2D()).ToList(), W.Width, W.Range);
@@ -308,7 +310,7 @@ namespace Leblanc
                 if (farmLocation.MinionsHit >= Config.Item("waveNumW").GetValue<Slider>().Value)
                     W.Cast(farmLocation.Position);
             }
-            else if (useE && E.IsReady() && MPercent >= FMana)
+            else if (useE && MPercent >= FMana)
             {
                 foreach (var minion in allMinions)
                 {
