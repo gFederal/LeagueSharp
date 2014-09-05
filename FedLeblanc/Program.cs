@@ -188,7 +188,7 @@ namespace Leblanc
                 if (igniteDmg * 1.09 > itarget.Health)
                 {
                     Player.SummonerSpellbook.CastSpell(IgniteSlot, itarget);
-                    Game.Say("/all Ignite! - " + igniteDmg + " > " + itarget.Health);
+                    //Game.Say("/all Ignite! - " + igniteDmg + " > " + itarget.Health);
                 }
             }
         }
