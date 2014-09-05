@@ -49,8 +49,8 @@ namespace Leblanc
             IgniteSlot = Player.GetSpellSlot("SummonerDot");
             DFG = Utility.Map.GetMap() == Utility.Map.MapType.TwistedTreeline ? new Items.Item(3188, 750) : new Items.Item(3128, 750);
 
-            W.SetSkillshot(0.25f, 120f, 700f, false, SkillshotType.SkillshotCircle);
-            E.SetSkillshot(0.25f, 60f, 1200f, true, SkillshotType.SkillshotLine);
+            W.SetSkillshot(0.25f, 250, float.MaxValue, false, SkillshotType.SkillshotCircle);
+            E.SetSkillshot(0.25f, 95, 1600, true, SkillshotType.SkillshotLine);            
 
             SpellList.AddRange(new[] { Q, W, E, R });
 
@@ -65,51 +65,32 @@ namespace Leblanc
             Orbwalker = new Orbwalking.Orbwalker(Config.SubMenu("Orbwalking"));
 
             Config.AddSubMenu(new Menu("Combo", "Combo"));
-            Config.SubMenu("Combo")
-                .AddItem(new MenuItem("ComboActive", "Combo!").SetValue(new KeyBind(32, KeyBindType.Press)));
+            Config.SubMenu("Combo").AddItem(new MenuItem("ComboActive", "Combo!").SetValue(new KeyBind(32, KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Harass", "Harass"));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseQHarass", "Use Q").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseWHarass", "Use W").SetValue(false));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseEHarass", "Use E").SetValue(false));
             Config.SubMenu("Harass").AddItem(new MenuItem("harassToggleQ", "Use Q (toggle)").SetValue<KeyBind>(new KeyBind('T', KeyBindType.Toggle)));
-            Config.SubMenu("Harass")
-                .AddItem(
-                    new MenuItem("HarassActive", "Harass!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
+            Config.SubMenu("Harass").AddItem(new MenuItem("HarassActive", "Harass!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Farm", "Farm"));
-            Config.SubMenu("Farm")
-                .AddItem(
-                    new MenuItem("UseQFarm", "Use Q").SetValue(
-                        new StringList(new[] { "Freeze", "LaneClear", "Both", "No" }, 1)));
-            Config.SubMenu("Farm")
-                .AddItem(
-                    new MenuItem("UseWFarm", "Use W").SetValue(
-                        new StringList(new[] { "Freeze", "LaneClear", "Both", "No" }, 3)));
-            Config.SubMenu("Farm")
-                .AddItem(
-                    new MenuItem("UseEFarm", "Use E").SetValue(
-                        new StringList(new[] { "Freeze", "LaneClear", "Both", "No" }, 3)));
-            Config.SubMenu("Farm")
-                .AddItem(new MenuItem("ManaFarm", "Min Mana").SetValue(new Slider(50, 100, 0)));
-            Config.SubMenu("Farm")
-                .AddItem(new MenuItem("waveNumW", "Minions to hit with W").SetValue<Slider>(new Slider(4, 1, 10)));
-            Config.SubMenu("Farm")
-                .AddItem(
-                    new MenuItem("FreezeActive", "Freeze!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
-            Config.SubMenu("Farm")
-                .AddItem(
-                    new MenuItem("LaneClearActive", "LaneClear!").SetValue(new KeyBind("V".ToCharArray()[0],
-                        KeyBindType.Press)));
+            Config.SubMenu("Farm").AddItem(new MenuItem("UseQFarm", "Use Q").SetValue(new StringList(new[] { "Freeze", "LaneClear", "Both", "No" }, 2)));
+            Config.SubMenu("Farm").AddItem(new MenuItem("UseWFarm", "Use W").SetValue(new StringList(new[] { "Freeze", "LaneClear", "Both", "No" }, 3)));
+            Config.SubMenu("Farm").AddItem(new MenuItem("UseEFarm", "Use E").SetValue(new StringList(new[] { "Freeze", "LaneClear", "Both", "No" }, 3)));
+            Config.SubMenu("Farm").AddItem(new MenuItem("ManaFarm", "Min Mana").SetValue(new Slider(50, 100, 0)));
+            Config.SubMenu("Farm").AddItem(new MenuItem("waveNumW", "Minions to hit with W").SetValue<Slider>(new Slider(4, 1, 10)));
+            Config.SubMenu("Farm").AddItem(new MenuItem("FreezeActive", "Freeze!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
+            Config.SubMenu("Farm").AddItem(new MenuItem("LaneClearActive", "LaneClear!").SetValue(new KeyBind("V".ToCharArray()[0],KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("JungleFarm", "JungleFarm"));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseQJFarm", "Use Q").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseWJFarm", "Use W").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseEJFarm", "Use E").SetValue(true));
-            Config.SubMenu("JungleFarm")
-                .AddItem(
-                    new MenuItem("JungleFarmActive", "JungleFarm!").SetValue(new KeyBind("V".ToCharArray()[0],
-                        KeyBindType.Press)));
+            Config.SubMenu("JungleFarm").AddItem(new MenuItem("JungleFarmActive", "JungleFarm!").SetValue(new KeyBind("V".ToCharArray()[0],KeyBindType.Press)));
+
+            Config.AddSubMenu(new Menu("Misc", "Misc"));
+            Config.SubMenu("Misc").AddItem(new MenuItem("UseI", "Ignite On Killable").SetValue(true));
 
             var dmgAfterComboItem = new MenuItem("DamageAfterCombo", "Draw damage after a rotation").SetValue(true);
             Utility.HpBarDamageIndicator.DamageToUnit += hero => (float)(DamageLib.getDmg(hero, DamageLib.SpellType.Q) + DamageLib.getDmg(hero, DamageLib.SpellType.W) + DamageLib.getDmg(hero, DamageLib.SpellType.E) + DamageLib.getDmg(hero, DamageLib.SpellType.W));
@@ -120,14 +101,9 @@ namespace Leblanc
             };
 
             Config.AddSubMenu(new Menu("Drawings", "Drawings"));
-            Config.SubMenu("Drawings")
-                .AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));
-            Config.SubMenu("Drawings")
-                .AddItem(
-                    new MenuItem("WRange", "W range").SetValue(new Circle(false, Color.FromArgb(255, 255, 255, 255))));
-            Config.SubMenu("Drawings")
-                .AddItem(
-                    new MenuItem("ERange", "E range").SetValue(new Circle(false, Color.FromArgb(255, 255, 255, 255))));
+            Config.SubMenu("Drawings").AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));
+            Config.SubMenu("Drawings").AddItem(new MenuItem("WRange", "W range").SetValue(new Circle(false, Color.FromArgb(255, 255, 255, 255))));
+            Config.SubMenu("Drawings").AddItem(new MenuItem("ERange", "E range").SetValue(new Circle(false, Color.FromArgb(255, 255, 255, 255))));
             Config.SubMenu("Drawings").AddItem(dmgAfterComboItem);
             Config.AddToMainMenu();
 
@@ -136,7 +112,7 @@ namespace Leblanc
             AntiGapcloser.OnEnemyGapcloser += AntiGapcloser_OnEnemyGapcloser;
             Interrupter.OnPosibleToInterrupt += Interrupter_OnPosibleToInterrupt;
             Orbwalking.BeforeAttack += OrbwalkingOnBeforeAttack;
-            Game.PrintChat(ChampionName + " Loaded!");
+            Game.PrintChat("<font color=\"#00BFFF\">" + ChampionName + " -</font> <font color=\"#FFFFFF\">Loaded!</font>");            
         }
 
         private static void OrbwalkingOnBeforeAttack(Orbwalking.BeforeAttackEventArgs args)
@@ -172,23 +148,15 @@ namespace Leblanc
 
         private static void Game_OnGameUpdate(EventArgs args)
         {
-            //Ignite
-            if (Player.Spellbook.GetSpell(Player.GetSpellSlot("SummonerDot")).State == SpellState.Ready)
-            {
-                var itarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
-
-                var igniteDmg = DamageLib.getDmg(itarget, DamageLib.SpellType.IGNITE);
-                if (igniteDmg+100 > itarget.Health)
-                {
-                    Player.SummonerSpellbook.CastSpell(IgniteSlot, itarget);
-                }
-            }
+            
             if (Config.Item("ComboActive").GetValue<KeyBind>().Active)
             {
                 Combo();
+                UseIgnite();
             }
             else
-            { 
+            {
+
                 if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
                     Harass();
 
@@ -202,7 +170,25 @@ namespace Leblanc
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
                     JungleFarm();
 
-            }            
+                if (Config.Item("UseI").GetValue<bool>())
+                    UseIgnite();
+            }
+                                   
+        }
+
+        private static void UseIgnite()
+        {
+            //Ignite
+            if (Player.Spellbook.GetSpell(Player.GetSpellSlot("SummonerDot")).State == SpellState.Ready)
+            {
+                var itarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
+
+                var igniteDmg = DamageLib.getDmg(itarget, DamageLib.SpellType.IGNITE);
+                if (igniteDmg > itarget.Health)
+                {
+                    Player.SummonerSpellbook.CastSpell(IgniteSlot, itarget);
+                }
+            }
         }
 
         private static void Combo()
@@ -277,25 +263,29 @@ namespace Leblanc
 
         private static void Farm(bool laneClear)
         {
-            
+
             var allMinions = MinionManager.GetMinions(Player.ServerPosition, Q.Range);
             var minions = MinionManager.GetMinions(Player.Position, W.Range + W.Width / 2);
-            // Spell usage
-            bool useQ = Q.IsReady() && Config.Item("UseQFarm").GetValue<bool>();
-            bool useW = W.IsReady() && Config.Item("UseWFarm").GetValue<bool>();
-            bool useE = E.IsReady() && Config.Item("UseEFarm").GetValue<bool>();
 
             var FMana = Config.Item("ManaFarm").GetValue<Slider>().Value;
-            var MPercent = Player.Mana * 100 / Player.MaxMana;            
+            var MPercent = Player.Mana * 100 / Player.MaxMana;
 
-            if (useQ && MPercent >= FMana)
+            // Spell usage
+            var useQi = Config.Item("UseQFarm").GetValue<StringList>().SelectedIndex;
+            var useWi = Config.Item("UseWFarm").GetValue<StringList>().SelectedIndex;
+            var useEi = Config.Item("UseEFarm").GetValue<StringList>().SelectedIndex;
+            var useQ = (laneClear && MPercent >= FMana && (useQi == 1 || useQi == 2)) || (!laneClear && MPercent >= FMana && (useQi == 0 || useQi == 2));
+            var useW = (laneClear && MPercent >= FMana && (useWi == 1 || useWi == 2)) || (!laneClear && MPercent >= FMana && (useWi == 0 || useWi == 2));
+            var useE = (laneClear && MPercent >= FMana && (useEi == 1 || useEi == 2)) || (!laneClear && MPercent >= FMana && (useEi == 0 || useEi == 2));            
+
+            if (useQ)
             {
                 foreach (var minion in allMinions)
                 {
                     if (minion.IsValidTarget() &&
                         HealthPrediction.GetHealthPrediction(minion,
                             (int)(Player.Distance(minion) * 1000 / 1400)) <
-                         DamageLib.getDmg(minion, DamageLib.SpellType.Q) - 10)
+                         DamageLib.getDmg(minion, DamageLib.SpellType.Q))
                     {
                         Q.CastOnUnit(minion);
                         return;
@@ -317,19 +307,21 @@ namespace Leblanc
                     if (minion.IsValidTarget(E.Range) &&
                         HealthPrediction.GetHealthPrediction(minion,
                             (int)(Player.Distance(minion) * 1000 / 1000)) <
-                        DamageLib.getDmg(minion, DamageLib.SpellType.E) - 10)
+                        DamageLib.getDmg(minion, DamageLib.SpellType.E))
                     {
                         E.CastOnUnit(minion);
                         return;
                     }
                 }
             }
-
             if (laneClear)
             {
                 foreach (var minion in allMinions)
                 {
-                    if (useQ)
+                    if (useQ && minion.IsValidTarget() &&
+                        HealthPrediction.GetHealthPrediction(minion,
+                            (int)(Player.Distance(minion) * 1000 / 1400)) <
+                         DamageLib.getDmg(minion, DamageLib.SpellType.Q))
                         Q.CastOnUnit(minion);
 
                     if (useW)
