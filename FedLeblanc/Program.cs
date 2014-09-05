@@ -71,6 +71,7 @@ namespace Leblanc
             Config.SubMenu("Harass").AddItem(new MenuItem("UseQHarass", "Use Q").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseWHarass", "Use W").SetValue(false));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseEHarass", "Use E").SetValue(false));
+            Config.SubMenu("Harass").AddItem(new MenuItem("UseWQHarass", "Use WQW Range").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("harassToggleQ", "Use Q (toggle)").SetValue<KeyBind>(new KeyBind('T', KeyBindType.Toggle)));
             Config.SubMenu("Harass").AddItem(new MenuItem("HarassActive", "Harass!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
 
@@ -156,7 +157,9 @@ namespace Leblanc
             }
             else
             {
-
+                if (Config.Item("UseI").GetValue<bool>())
+                    UseIgnite();
+                
                 if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
                     Harass();
 
@@ -169,9 +172,7 @@ namespace Leblanc
 
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
                     JungleFarm();
-
-                if (Config.Item("UseI").GetValue<bool>())
-                    UseIgnite();
+                
             }
                                    
         }
@@ -184,9 +185,10 @@ namespace Leblanc
                 var itarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
 
                 var igniteDmg = DamageLib.getDmg(itarget, DamageLib.SpellType.IGNITE);
-                if (igniteDmg > itarget.Health)
+                if (igniteDmg * 1.09 > itarget.Health)
                 {
                     Player.SummonerSpellbook.CastSpell(IgniteSlot, itarget);
+                    Game.Say("/all Ignite! - " + igniteDmg + " > " + itarget.Health);
                 }
             }
         }
@@ -244,20 +246,32 @@ namespace Leblanc
         private static void Harass()
         {
             var target = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Magical);
+            var rtarget = SimpleTs.GetTarget((W.Range + Q.Range), SimpleTs.DamageType.Magical);
 
-            if (target != null && Config.Item("UseQHarass").GetValue<bool>())
+            if (Config.Item("UseWQHarass").GetValue<bool>() && Player.Distance(rtarget) > Q.Range && Player.Distance(rtarget) <= (W.Range + Q.Range) * 0.9)
             {
-                Q.CastOnUnit(target);
+                if (W.IsReady() && Q.IsReady())
+                {
+                    W.Cast(rtarget);
+                }                
             }
-            if (target != null && Config.Item("UseWHarass").GetValue<bool>())
+            else
             {
-                W.CastOnUnit(target);
-            }
-            if (target != null && Config.Item("UseEHarass").GetValue<bool>())
-            {
-                PredictionOutput ePred = E.GetPrediction(target);
-                if (ePred.Hitchance >= HitChance.High)
-                    E.Cast(ePred.CastPosition);
+
+                if (target != null && Config.Item("UseQHarass").GetValue<bool>())
+                {
+                    Q.CastOnUnit(target);
+                }
+                if (target != null && (Config.Item("UseWHarass").GetValue<bool>() || Config.Item("UseWQHarass").GetValue<bool>()))
+                {
+                    W.CastOnUnit(target);
+                }
+                if (target != null && Config.Item("UseEHarass").GetValue<bool>())
+                {
+                    PredictionOutput ePred = E.GetPrediction(target);
+                    if (ePred.Hitchance >= HitChance.High)
+                        E.Cast(ePred.CastPosition);
+                }                
             }
         }
 
@@ -343,7 +357,9 @@ namespace Leblanc
                 var mob = mobs[0];
                 Q.CastOnUnit(mob);
                 W.CastOnUnit(mob);
-                E.CastOnUnit(mob);
+                PredictionOutput ePred = E.GetPrediction(mob);
+                if (ePred.Hitchance >= HitChance.High)
+                E.Cast(ePred.CastPosition);                
             }
         }
     }
