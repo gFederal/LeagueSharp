@@ -155,14 +155,11 @@ namespace Leblanc
         }
 
         private static void Game_OnGameUpdate(EventArgs args)
-        {
-
-            if (Player.IsDead) return;
+        {            
             
             if (Config.Item("ComboActive").GetValue<KeyBind>().Active)
             {                
-                Combo();
-                
+                Combo();                
             }
             else
             {                
@@ -203,8 +200,8 @@ namespace Leblanc
             if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready)
                 damage += DamageLib.getDmg(enemy, DamageLib.SpellType.IGNITE);
 
-            if (E.IsReady())
-                damage += DamageLib.getDmg(enemy, DamageLib.SpellType.R);
+            if (R.IsReady())
+                damage += DamageLib.getDmg(enemy, DamageLib.SpellType.W);
 
             return (float)damage * (DFG.IsReady() ? 1.2f : 1);
         }
@@ -213,36 +210,39 @@ namespace Leblanc
         {
             var qTarget = SimpleTs.GetTarget(Q.Range + (isHarass ? Q.Width / 3 : Q.Width), SimpleTs.DamageType.Magical);
             var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
-            var rTarget = SimpleTs.GetTarget(R.Range, SimpleTs.DamageType.Magical);
+            var rTarget = SimpleTs.GetTarget(R.Range + W.Width, SimpleTs.DamageType.Magical);
             var eTarget = SimpleTs.GetTarget(E.Range, SimpleTs.DamageType.Magical);
             var comboDamage = wTarget != null ? GetComboDamage(wTarget) : 0;
 
             //Q
-            if (qTarget != null && useQ)
-                Q.Cast(qTarget, false, true);
-
+            if (qTarget != null && useQ && Q.IsReady())
+            {
+                Q.CastOnUnit(qTarget);
+            }
             //DFG (and ult if ready)
-            if (wTarget != null && useR && comboDamage > wTarget.Health && DFG.IsReady() && W.IsReady() && R.IsReady())
-               DFG.Cast(wTarget);           
-
+            else if (wTarget != null && comboDamage > wTarget.Health && DFG.IsReady() && W.IsReady() && R.IsReady())
+            {
+                DFG.Cast(wTarget);
+            }
             //W
-            if (W.IsReady() && useW)
-                W.Cast(wTarget, false, true);
-
+            else if (wTarget != null && W.IsReady() && useW)
+            {
+                W.CastOnUnit(wTarget);
+            }
             //R
-            if (R.IsReady() && useR)
-                R.Cast(rTarget, false, true);
-
+            else if (rTarget != null && R.IsReady() && useR)
+            {
+                R.CastOnUnit(rTarget);
+            }
             //E
-            if (E.IsReady() && useE)
+            else if (eTarget != null && E.IsReady() && useE)
             {
                  PredictionOutput ePred = E.GetPrediction(eTarget);
                         if (ePred.Hitchance >= HitChance.High)
                             E.Cast(ePred.CastPosition);
             }
-
             //Ignite
-            if (rTarget != null && useIgnite && IgniteSlot != SpellSlot.Unknown &&
+            if (wTarget != null && useIgnite && IgniteSlot != SpellSlot.Unknown &&
                 Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready)
             {
                 if (comboDamage > wTarget.Health)
@@ -334,12 +334,9 @@ namespace Leblanc
                 foreach (var minion in allMinions)
                 {
                     if (minion.IsValidTarget() &&
-                        HealthPrediction.GetHealthPrediction(minion,
-                            (int)(Player.Distance(minion) * 1000 / 1400)) <
-                         0.75 * DamageLib.getDmg(minion, DamageLib.SpellType.Q))
+                        minion.Health < 0.75 * DamageLib.getDmg(minion, DamageLib.SpellType.Q))
                     {
-                        Q.Cast(minion);
-                        return;
+                        Q.CastOnUnit(minion);                        
                     }
                 }
             }
@@ -355,12 +352,9 @@ namespace Leblanc
                 foreach (var minion in allMinions)
                 {
                     if (minion.IsValidTarget(E.Range) &&
-                        HealthPrediction.GetHealthPrediction(minion,
-                            (int)(Player.Distance(minion) * 1000 / 1400)) <
-                        0.75 * DamageLib.getDmg(minion, DamageLib.SpellType.E))
+                        minion.Health < 0.80 * DamageLib.getDmg(minion, DamageLib.SpellType.E))
                     {
-                        E.CastOnUnit(minion);
-                        return;
+                        E.Cast(minion);                        
                     }
                 }
             }
@@ -369,9 +363,7 @@ namespace Leblanc
                 foreach (var minion in allMinions)
                 {
                     if (useQ && minion.IsValidTarget() &&
-                        HealthPrediction.GetHealthPrediction(minion,
-                            (int)(Player.Distance(minion) * 1000 / 1400)) <
-                        0.75 * DamageLib.getDmg(minion, DamageLib.SpellType.Q))
+                        minion.Health < 0.80 * DamageLib.getDmg(minion, DamageLib.SpellType.Q))
                         Q.CastOnUnit(minion);
 
                     if (useW)                        
@@ -396,10 +388,8 @@ namespace Leblanc
             {
                 var mob = mobs[0];
                 Q.Cast(mob);
-                W.Cast(mob);
-                PredictionOutput ePred = E.GetPrediction(mob);
-                if (ePred.Hitchance >= HitChance.High)
-                E.Cast(ePred.CastPosition);                
+                W.Cast(mob);                
+                E.Cast(mob);                
             }
         }
     }
