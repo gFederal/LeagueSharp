@@ -39,6 +39,7 @@ namespace Leblanc
         private static void Game_OnGameLoad(EventArgs args)
         {
             Player = ObjectManager.Player;
+
             if (Player.BaseSkinName != ChampionName) return;
 
             Q = new Spell(SpellSlot.Q, 700);
@@ -110,9 +111,10 @@ namespace Leblanc
             Config.SubMenu("Drawings").AddItem(new MenuItem("WQRange", "WQ range").SetValue(new Circle(false, Color.FromArgb(255, 255, 255, 255))));
             Config.SubMenu("Drawings").AddItem(dmgAfterComboItem);
             Config.AddToMainMenu();
-
-            Drawing.OnDraw += Drawing_OnDraw;
+            
             Game.OnGameUpdate += Game_OnGameUpdate;
+            Obj_AI_Base.OnProcessSpellCast += Obj_AI_Hero_OnProcessSpellCast;
+            Drawing.OnDraw += Drawing_OnDraw;
             AntiGapcloser.OnEnemyGapcloser += AntiGapcloser_OnEnemyGapcloser;
             Interrupter.OnPosibleToInterrupt += Interrupter_OnPosibleToInterrupt;
             Orbwalking.BeforeAttack += OrbwalkingOnBeforeAttack;
@@ -155,8 +157,9 @@ namespace Leblanc
         }
 
         private static void Game_OnGameUpdate(EventArgs args)
-        {            
-            
+        {
+            if (Player.IsDead) return;
+
             if (Config.Item("ComboActive").GetValue<KeyBind>().Active)
             {                
                 Combo();                
@@ -206,51 +209,60 @@ namespace Leblanc
             return (float)damage * (DFG.IsReady() ? 1.2f : 1);
         }
 
-        private static void UseSpells(bool useQ, bool useW, bool useE, bool useR, bool useIgnite, bool isHarass)
+        private static void UseSpells(bool useQ, bool useW, bool useR, bool useE, bool useIgnite)
         {
-            var qTarget = SimpleTs.GetTarget(Q.Range + (isHarass ? Q.Width / 3 : Q.Width), SimpleTs.DamageType.Magical);
+            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);
             var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
             var rTarget = SimpleTs.GetTarget(R.Range + W.Width, SimpleTs.DamageType.Magical);
             var eTarget = SimpleTs.GetTarget(E.Range, SimpleTs.DamageType.Magical);
             var comboDamage = wTarget != null ? GetComboDamage(wTarget) : 0;
 
-            //Q
-            if (qTarget != null && useQ && Q.IsReady())
+            if (qTarget != null)
             {
-                Q.CastOnUnit(qTarget);
-            }
-            //DFG (and ult if ready)
-            else if (wTarget != null && comboDamage > wTarget.Health && DFG.IsReady() && W.IsReady() && R.IsReady())
-            {
-                DFG.Cast(wTarget);
-            }
-            //W
-            else if (wTarget != null && W.IsReady() && useW)
-            {
-                W.CastOnUnit(wTarget);
-            }
-            //R
-            else if (rTarget != null && R.IsReady() && useR)
-            {
-                R.CastOnUnit(rTarget);
-            }
-            //E
-            else if (eTarget != null && E.IsReady() && useE)
-            {
-                 PredictionOutput ePred = E.GetPrediction(eTarget);
+                if (Player.Distance(qTarget) <= 650)
+                {
+                    //Q
+                    if (qTarget != null && useQ && Q.IsReady())
+                    {
+                        Q.CastOnUnit(qTarget);
+                    }
+                    //DFG (and ult if ready)
+                    else if (wTarget != null && comboDamage > wTarget.Health && DFG.IsReady() && W.IsReady() && R.IsReady())
+                    {
+                        DFG.Cast(wTarget);
+                    }
+                    //W
+                    else if (wTarget != null && W.IsReady() && useW && Environment.TickCount - W.LastCastAttemptT > 2500)
+                    {
+                        W.CastOnUnit(wTarget);
+                    }
+                    //R
+                    else if (rTarget != null && R.IsReady() && useR)
+                    {
+                        R.CastOnUnit(rTarget);
+                    }
+                    //E
+                    else if (eTarget != null && E.IsReady() && useE)
+                    {
+                        PredictionOutput ePred = E.GetPrediction(eTarget);
                         if (ePred.Hitchance >= HitChance.High)
                             E.Cast(ePred.CastPosition);
-            }
-            //Ignite
-            if (wTarget != null && useIgnite && IgniteSlot != SpellSlot.Unknown &&
-                Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready)
-            {
-                if (comboDamage > wTarget.Health)
-                {
-                    Player.SummonerSpellbook.CastSpell(IgniteSlot, wTarget);
+                    }
+                    //Ignite
+                    else if (wTarget != null && useIgnite && IgniteSlot != SpellSlot.Unknown &&
+                        Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready)
+                    {
+                        if (comboDamage > wTarget.Health)
+                        {
+                            Player.SummonerSpellbook.CastSpell(IgniteSlot, wTarget);
+                        }
+                    }
+                    else
+                    {
+                        Q.CastOnUnit(qTarget);
+                    }
                 }
-            }
-                        
+            }          
         }
         
 
@@ -258,7 +270,7 @@ namespace Leblanc
         {
                 UseSpells(Config.Item("UseQCombo").GetValue<bool>(), Config.Item("UseWCombo").GetValue<bool>(),
                 Config.Item("UseRCombo").GetValue<bool>(), Config.Item("UseECombo").GetValue<bool>(),
-                Config.Item("UseIgniteCombo").GetValue<bool>(), false);
+                Config.Item("UseIgniteCombo").GetValue<bool>());
         }
 
         private static void ToggleHarass()
@@ -391,6 +403,22 @@ namespace Leblanc
                 W.Cast(mob);                
                 E.Cast(mob);                
             }
+        }
+
+        private static void Obj_AI_Hero_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
+        {
+            var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
+            
+            if (sender.IsMe && args.SData.Name == "LeblancSlide")
+            {
+                R.CastOnUnit(wTarget);
+                W.LastCastAttemptT = Environment.TickCount;
+            }
+            else if (sender.IsMe && args.SData.Name == "LeblancSlideM")
+            {
+                R.LastCastAttemptT = Environment.TickCount;
+            }            
+
         }
     }
 }
