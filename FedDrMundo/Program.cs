@@ -262,7 +262,10 @@ namespace FedDrMundo
                 {
                     W.Cast();
                 }
-                Q.Cast(mob);
+                if (Q.IsReady() && mobs[0].IsValidTarget() && Player.Distance(mobs[0]) <= Q.Range)
+                {
+                    Q.Cast(mobs[0].Position);
+                }
                 E.Cast();
             }
         }
