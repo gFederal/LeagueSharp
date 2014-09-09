@@ -65,7 +65,7 @@ namespace FedMaokai
             Config.SubMenu("Combo").AddItem(new MenuItem("UseWCombo", "Use W").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseECombo", "Use E").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseRCombo", "Use R").SetValue(true));
-            Config.SubMenu("Combo").AddItem(new MenuItem("MinR", "Min Enemys for (R)").SetValue<Slider>(new Slider(2, 1, 5)));
+            Config.SubMenu("Combo").AddItem(new MenuItem("MinR", "Min Enemys for (R)").SetValue<Slider>(new Slider(3, 1, 5)));
             Config.SubMenu("Combo").AddItem(new MenuItem("ManaR", "Turn off R at % Mana").SetValue(new Slider(30, 100, 0)));
             Config.SubMenu("Combo").AddItem(new MenuItem("ComboActive", "Combo!").SetValue(new KeyBind(32, KeyBindType.Press)));
 
@@ -124,7 +124,7 @@ namespace FedMaokai
             Game.OnGameUpdate += Game_OnGameUpdate;
             Drawing.OnDraw += Drawing_OnDraw;            
             AntiGapcloser.OnEnemyGapcloser += AntiGapcloser_OnEnemyGapcloser;
-            Interrupter.OnPosibleToInterrupt += Interrupter_OnPosibleToInterrupt;            
+            Interrupter.OnPosibleToInterrupt += Interrupter_OnPosibleToInterrupt;           
 
             Game.PrintChat("<font color=\"#00BFFF\">Fed" + ChampionName + " -</font> <font color=\"#FFFFFF\">Loaded!</font>");
 
@@ -134,7 +134,7 @@ namespace FedMaokai
         {
             if (!Config.Item("gapClose").GetValue<bool>()) return;
 
-            if (Player.Distance(gapcloser.Sender) < Q.Range)
+            if (gapcloser.Sender.IsValidTarget(400f))
             {
                 Q.Cast(gapcloser.Sender);
             }
@@ -172,7 +172,6 @@ namespace FedMaokai
             }
             else
             {
-
                 if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
                     Harass();
 
@@ -192,7 +191,16 @@ namespace FedMaokai
 
         private static void AutoUlt()
         {
-            //aqui
+            int inimigos = Utility.CountEnemysInRange(650);
+
+            var RMana = Config.Item("ManaR").GetValue<Slider>().Value;
+            var MPercentR = Player.Mana * 100 / Player.MaxMana;
+
+            if (Config.Item("MinR").GetValue<Slider>().Value >= inimigos && MPercentR >= RMana)
+            {
+                R.Cast();
+            }
+
         }
 
         private static void Combo()
@@ -213,6 +221,10 @@ namespace FedMaokai
             {
                 E.Cast(eTarget);
             }
+            if (Config.Item("UseRCombo").GetValue<bool>() && R.IsReady())
+            {
+                AutoUlt();
+            }
         }
 
         private static void Ganks()
@@ -221,6 +233,10 @@ namespace FedMaokai
             var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
             var eTarget = SimpleTs.GetTarget(E.Range + E.Width, SimpleTs.DamageType.Magical);
 
+            if (qTarget != null && Config.Item("UseQGank").GetValue<bool>() && Q.IsReady())
+            {
+                Q.Cast(qTarget);
+            }
             if (wTarget != null && Config.Item("UseWGank").GetValue<bool>() && W.IsReady())
             {
                 W.Cast(wTarget);
@@ -228,11 +244,7 @@ namespace FedMaokai
             if (eTarget != null && Config.Item("UseEGank").GetValue<bool>() && E.IsReady())
             {
                 E.Cast(eTarget);
-            }
-            if (qTarget != null && Config.Item("UseQGank").GetValue<bool>() && Q.IsReady())
-            {
-                Q.Cast(qTarget);
-            }
+            }           
         }       
 
         private static void Harass()
@@ -298,6 +310,6 @@ namespace FedMaokai
                 Q.Cast(mob);
                 E.Cast(mob);
             }
-        }
+        }        
     }
 }
