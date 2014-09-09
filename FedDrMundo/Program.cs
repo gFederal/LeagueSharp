@@ -75,24 +75,33 @@ namespace FedDrMundo
             Config.AddSubMenu(new Menu("Farm", "Farm"));
             Config.SubMenu("Farm").AddItem(new MenuItem("UseQFarm", "Use Q Farm").SetValue(true));
             Config.SubMenu("Farm").AddItem(new MenuItem("UseWFarm", "Use W Farm").SetValue(true));
-            Config.SubMenu("Farm").AddItem(new MenuItem("UseEFarm", "Use E Farm").SetValue(true));            
+            Config.SubMenu("Farm").AddItem(new MenuItem("UseEFarm", "Use E Farm").SetValue(true));
+            Config.SubMenu("Farm").AddItem(new MenuItem("FreezeActive", "Freeze!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
             Config.SubMenu("Farm").AddItem(new MenuItem("LaneClearActive", "LaneClear!").SetValue(new KeyBind("V".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("JungleFarm", "JungleFarm"));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseQJFarm", "Use Q").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseWJFarm", "Use W").SetValue(true));
-            Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseEJFarm", "Use E").SetValue(true));
+            Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseEJFarm", "Use E").SetValue(true));            
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("JungleFarmActive", "JungleFarm!").SetValue(new KeyBind("V".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Misc", "Misc"));
             Config.SubMenu("Misc").AddItem(new MenuItem("KS", "Killsteal using Q").SetValue(false));
-            Config.SubMenu("Misc").AddItem(new MenuItem("RangeQ", "Q Range Slider").SetValue(new Slider(1000, 1000, 0)));
+            Config.SubMenu("Misc").AddItem(new MenuItem("RangeQ", "Q Range Slider").SetValue(new Slider(980, 1000, 0)));
             Config.SubMenu("Misc").AddItem(new MenuItem("lifesave", "Life saving Ultimate").SetValue(true));
-            Config.SubMenu("Misc").AddItem(new MenuItem("percenthp", "Life Saving Ult %").SetValue(new Slider(20, 100, 0)));
+            Config.SubMenu("Misc").AddItem(new MenuItem("percenthp", "Life Saving Ult %").SetValue(new Slider(30, 100, 0)));
 
-            Config.AddSubMenu(new Menu("Drawings", "Drawings"));
-            Config.SubMenu("Drawings").AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));            
+            var dmgAfterComboItem = new MenuItem("DamageAfterCombo", "Draw damage after a rotation").SetValue(true);
+            Utility.HpBarDamageIndicator.DamageToUnit += hero => (float)(DamageLib.getDmg(hero, DamageLib.SpellType.Q));
+            Utility.HpBarDamageIndicator.Enabled = dmgAfterComboItem.GetValue<bool>();
+            dmgAfterComboItem.ValueChanged += delegate(object sender, OnValueChangeEventArgs eventArgs)
+            {
+                Utility.HpBarDamageIndicator.Enabled = eventArgs.GetNewValue<bool>();
+            };
             
+            Config.AddSubMenu(new Menu("Drawings", "Drawings"));
+            Config.SubMenu("Drawings").AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));
+            Config.SubMenu("Drawings").AddItem(dmgAfterComboItem);
             Config.AddToMainMenu();
 
             Game.OnGameUpdate += Game_OnGameUpdate;
@@ -150,8 +159,14 @@ namespace FedDrMundo
                 if (Config.Item("harassToggle").GetValue<KeyBind>().Active)
                     ToggleHarass();
 
+                if (Config.Item("FreezeActive").GetValue<KeyBind>().Active)
+                {
+                    FreezeFarm();
+                }
                 if (Config.Item("LaneClearActive").GetValue<KeyBind>().Active)
-                    //LaneClear();
+                {
+                    LaneClear();
+                }
 
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
                     JungleFarm();
@@ -159,6 +174,9 @@ namespace FedDrMundo
 
             if (Config.Item("lifesave").GetValue<bool>())
                 LifeSave();
+
+            if (Config.Item("KS").GetValue<bool>())
+                Killsteal();
         }
 
         private static void LifeSave()
@@ -170,14 +188,26 @@ namespace FedDrMundo
                 R.Cast();                
             }
         }
+
+        private static void Killsteal()
+        {
+            int qRange = Config.Item("RangeQ").GetValue<Slider>().Value;
+            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);
+            var Qdamage = DamageLib.getDmg(qTarget, DamageLib.SpellType.Q) * 0.95;
+
+            if (qTarget != null && Config.Item("UseQCombo").GetValue<bool>() && Q.IsReady() && Player.Distance(qTarget) <= qRange && qTarget.Health < Qdamage)
+            {
+                PredictionOutput qPred = Q.GetPrediction(qTarget); 
+                if (qPred.Hitchance >= HitChance.High)
+                    Q.Cast(qPred.CastPosition);
+            }
+        }
         
         private static void Combo()
         {
             int qRange = Config.Item("RangeQ").GetValue<Slider>().Value;
 
-            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);
-            var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
-            var eTarget = SimpleTs.GetTarget(E.Range + E.Width, SimpleTs.DamageType.Magical);
+            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);           
 
             if (qTarget != null && Config.Item("UseQCombo").GetValue<bool>() && Q.IsReady() && Player.Distance(qTarget) <= qRange)
             {
@@ -185,11 +215,11 @@ namespace FedDrMundo
                     if (qPred.Hitchance >= HitChance.High)
                         Q.Cast(qPred.CastPosition);
             }
-            if (!WActive && qTarget != null && Config.Item("UseWCombo").GetValue<bool>() && W.IsReady() && Player.Distance(qTarget) <= qRange)
+            if (!WActive && qTarget != null && Config.Item("UseWCombo").GetValue<bool>() && W.IsReady() && Player.Distance(qTarget) <= 300)
             {
                 W.Cast();
             }
-            if (eTarget != null && Config.Item("UseECombo").GetValue<bool>() && E.IsReady() && Player.Distance(qTarget) <= qRange)
+            if (qTarget != null && Config.Item("UseECombo").GetValue<bool>() && E.IsReady() && Player.Distance(qTarget) <= qRange)
             {
                 E.Cast();                
             }            
@@ -229,24 +259,44 @@ namespace FedDrMundo
             }            
         }
 
+        private static void FreezeFarm()
+        {
+            var allMinionsQ = MinionManager.GetMinions(Player.ServerPosition, Q.Range + Q.Width + 30, MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);            
+
+            foreach (var vMinion in allMinionsQ)
+            {
+                var Qdamage = DamageLib.getDmg(vMinion, DamageLib.SpellType.Q) * 0.85;
+
+                if (Config.Item("UseQFarm").GetValue<bool>() && Q.IsReady() && Qdamage >= Q.GetHealthPrediction(vMinion))
+                {
+                    Q.Cast(vMinion.Position);
+                }
+            }
+        }
+        
         private static void LaneClear()
         {
-            var allMinionsQ = MinionManager.GetMinions(Player.ServerPosition, Q.Range + Q.Width + 30, MinionTypes.All);
-            var allMinionsE = MinionManager.GetMinions(Player.ServerPosition, E.Range + E.Width + 30, MinionTypes.All);
+            var allMinionsQ = MinionManager.GetMinions(Player.ServerPosition, Q.Range + Q.Width + 30, MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
+            var allMinionsW = MinionManager.GetMinions(Player.ServerPosition, 350, MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
 
-            var FMana = Config.Item("ManaFarm").GetValue<Slider>().Value;
-            var MPercent = Player.Mana * 100 / Player.MaxMana;
-
-            var fle = E.GetCircularFarmLocation(allMinionsE, E.Width);
-            var flq = Q.GetLineFarmLocation(allMinionsQ, Q.Width);
-
-            if (Config.Item("UseQFarm").GetValue<bool>() && Q.IsReady() && flq.MinionsHit >= Config.Item("waveNumQ").GetValue<Slider>().Value && flq.MinionsHit >= 2 && MPercent >= FMana)
+            foreach (var vMinion in allMinionsQ)
             {
-                Q.Cast(flq.Position);
-            }
-            if (Config.Item("UseEFarm").GetValue<bool>() && E.IsReady() && fle.MinionsHit >= Config.Item("waveNumE").GetValue<Slider>().Value && fle.MinionsHit >= 3 && MPercent >= FMana)
-            {
-                E.Cast(fle.Position);
+                var Qdamage = DamageLib.getDmg(vMinion, DamageLib.SpellType.Q) * 0.85;
+
+                if (Config.Item("UseQFarm").GetValue<bool>() && Q.IsReady() && Qdamage >= Q.GetHealthPrediction(vMinion))
+                {
+                    Q.Cast(vMinion.Position);
+                }
+
+                if (Config.Item("UseWFarm").GetValue<bool>() && W.IsReady() && !WActive && allMinionsW.Count > 2)
+                {
+                    W.Cast();
+                }
+
+                if (Config.Item("UseEFarm").GetValue<bool>() && E.IsReady() && allMinionsW.Count > 2)
+                {
+                    E.Cast();
+                }
             }
         }
 
@@ -256,17 +306,19 @@ namespace FedDrMundo
                 MinionTypes.All,
                 MinionTeam.Neutral, MinionOrderTypes.MaxHealth);
             if (mobs.Count > 0)
-            {
-                var mob = mobs[0];
+            {               
+                if (Q.IsReady())
+                {
+                    Q.Cast(mobs[0].Position);
+                }
                 if (!WActive && W.IsReady())
                 {
                     W.Cast();
                 }
-                if (Q.IsReady() && mobs[0].IsValidTarget() && Player.Distance(mobs[0]) <= Q.Range)
+                if (E.IsReady())
                 {
-                    Q.Cast(mobs[0].Position);
+                    E.Cast();
                 }
-                E.Cast();
             }
         }
 
