@@ -48,9 +48,9 @@ namespace FedJax
             if (Player.BaseSkinName != ChampionName) return;
 
             Q = new Spell(SpellSlot.Q, 700);
-            W = new Spell(SpellSlot.W, 0);
-            E = new Spell(SpellSlot.E, 187);
-            R = new Spell(SpellSlot.R, 0);
+            W = new Spell(SpellSlot.W);
+            E = new Spell(SpellSlot.E, 200);
+            R = new Spell(SpellSlot.R, 700);
 
             IgniteSlot = Player.GetSpellSlot("SummonerDot");
 
@@ -72,6 +72,7 @@ namespace FedJax
 
             Config.AddSubMenu(new Menu("Harass", "Harass"));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseQHarass", "Use Q in Harass").SetValue(true));
+            Config.SubMenu("Harass").AddItem(new MenuItem("UseWHarass", "Use W in Harass").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseEHarass", "Use E in Harass").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("ManaHarass", "Dont Harass if Mana < %").SetValue(new Slider(50, 100, 0)));            
             Config.SubMenu("Harass").AddItem(new MenuItem("HarassActive", "Harass!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
@@ -99,7 +100,7 @@ namespace FedJax
 
             Config.AddSubMenu(new Menu("Spells", "Spells"));
             Config.SubMenu("Spells").AddItem(new MenuItem("setW", "Use W: ").SetValue(new StringList(new[] { "Every AA", "After third AA" }, 1)));
-            Config.SubMenu("Spells").AddItem(new MenuItem("setE", "Use E: ").SetValue(new StringList(new[] { "Q Range", "Melee Range" }, 1)));
+            Config.SubMenu("Spells").AddItem(new MenuItem("setE", "Use E: ").SetValue(new StringList(new[] { "Q Range", "Melee Range" }, 0)));
             Config.SubMenu("Spells").AddItem(new MenuItem("activeE", "Activate E: ").SetValue(new StringList(new[] { "Instantly", "Max Radius", "No" }, 1)));
             Config.SubMenu("Spells").AddItem(new MenuItem("AutoUlt", "Enable Auto Ult").SetValue(true));
             Config.SubMenu("Spells").AddItem(new MenuItem("minEnemies", "Min. Enemies in Range").SetValue(new Slider(2, 5, 0)));
@@ -163,7 +164,7 @@ namespace FedJax
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
                     JungleFarm();
 
-                if (Config.Item("KS").GetValue<bool>())
+                if (Config.Item("KS").GetValue<bool>() && !Config.Item("ComboActive").GetValue<KeyBind>().Active)
                     KillSteal();                
             }            
         }
@@ -197,7 +198,8 @@ namespace FedJax
 
             if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
             {
-                Player.SummonerSpellbook.CastSpell(IgniteSlot, iTarget);
+                Player.SummonerSpellbook.CastSpell(IgniteSlot, iTarget);                
+                Game.Say("/l");
             }
         }
 
@@ -231,7 +233,7 @@ namespace FedJax
             var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Physical);
             var useEi = Config.Item("setE").GetValue<StringList>().SelectedIndex;
 
-            if (!Eactive && qTarget != null && (useEi == 0 && Q.IsReady() && (Player.Distance(qTarget) <= Q.Range || Player.Distance(qTarget) <= E.Range)) || useEi == 1 && Player.Distance(qTarget) <= E.Range)
+            if (!Eactive && qTarget != null && (useEi == 0 && Q.IsReady() && (Player.Distance(qTarget) <= Q.Range - 100 || Player.Distance(qTarget) <= E.Range)) || useEi == 1 && Player.Distance(qTarget) <= E.Range)
             {                
                     E.Cast();
                     E.LastCastAttemptT = Environment.TickCount;
@@ -255,6 +257,11 @@ namespace FedJax
         
         private static void Combo()
         {
+            if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && W.IsReady())
+            {
+                W.Cast();
+            }
+
             CastSpellE();
             CastSpellQ();
             ActivateE();
@@ -263,7 +270,11 @@ namespace FedJax
             {
                 AutoUlt();
             }
-            
+
+            if (Config.Item("AutoI").GetValue<bool>())
+            {
+                AutoIgnite();
+            }            
         }
 
         private static void Harass()
@@ -273,6 +284,10 @@ namespace FedJax
 
             if (MPercentH >= HMana)
             {
+                if (Config.Item("UseWHarass").GetValue<bool>() && W.IsReady())
+                {
+                    W.Cast();
+                }
                 if (Config.Item("UseEHarass").GetValue<bool>())
                 {
                     CastSpellE();
@@ -314,6 +329,10 @@ namespace FedJax
             {
                 var Qdamage = DamageLib.getDmg(vMinion, DamageLib.SpellType.Q) * 0.85;
 
+                if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && W.IsReady() && Config.Item("UseWFarm").GetValue<bool>())
+                {
+                    W.Cast();
+                }
                 if (Config.Item("UseQFarm").GetValue<bool>() && Q.IsReady() && Qdamage >= Q.GetHealthPrediction(vMinion) && MPercent >= FMana)
                 {
                     Q.CastOnUnit(vMinion);
@@ -334,6 +353,10 @@ namespace FedJax
                 MinionTeam.Neutral, MinionOrderTypes.MaxHealth);
             if (mobs.Count > 0)
             {
+                if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && W.IsReady() && Config.Item("UseWJFarm").GetValue<bool>())
+                {
+                    W.Cast();
+                }
                 if (Q.IsReady() && Config.Item("UseQJFarm").GetValue<bool>())
                 {
                     Q.CastOnUnit(mobs[0]);
@@ -357,15 +380,15 @@ namespace FedJax
                     countAttack = 0;
                     //Game.PrintChat("Critico!");
                 }
-
-                if (!Wactive && args.SData.Name == "JaxBasicAttack2" || args.SData.Name == "JaxBasicAttack")
+                
+                if (!Wactive && args.SData.Name == "JaxBasicAttack2" || args.SData.Name == "JaxBasicAttack" && Config.Item("setW").GetValue<StringList>().SelectedIndex == 1)
                 {
                     countAttack = countAttack + 1;
                     //Game.PrintChat("Count Attack: " + countAttack.ToString());
 
                     if (countAttack == 2)
                     {
-                        if (W.IsReady() && Config.Item("ComboActive").GetValue<KeyBind>().Active)
+                        if (W.IsReady() && (Config.Item("ComboActive").GetValue<KeyBind>().Active || Config.Item("JungleFarmActive").GetValue<KeyBind>().Active))
                         {
                             W.Cast();
                             Wactive = true;
