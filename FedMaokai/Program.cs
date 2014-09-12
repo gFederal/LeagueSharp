@@ -26,6 +26,9 @@ namespace FedMaokai
         public static Spell E;
         public static Spell R;
 
+        private static SpellSlot IgniteSlot;
+        private static SpellSlot SmiteSlot;
+
         public static Menu Config;
 
         private static Obj_AI_Hero Player;
@@ -45,6 +48,9 @@ namespace FedMaokai
             W = new Spell(SpellSlot.W, 525);
             E = new Spell(SpellSlot.E, 1100);
             R = new Spell(SpellSlot.R, 625);
+
+            IgniteSlot = Player.GetSpellSlot("SummonerDot");
+            SmiteSlot = Player.GetSpellSlot("SummonerSmite");
 
             Q.SetSkillshot(0.50f, 110f, 1200f, false, SkillshotType.SkillshotLine);
             E.SetSkillshot(1f, 250f, 1500f, false, SkillshotType.SkillshotCircle);
@@ -99,9 +105,12 @@ namespace FedMaokai
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseQJFarm", "Use Q").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseWJFarm", "Use W").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseEJFarm", "Use E").SetValue(true));
+            Config.SubMenu("JungleFarm").AddItem(new MenuItem("AutoSmite", "Auto Smite!").SetValue<KeyBind>(new KeyBind('J', KeyBindType.Toggle)));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("JungleFarmActive", "JungleFarm!").SetValue(new KeyBind("V".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Misc", "Misc"));
+            Config.SubMenu("Misc").AddItem(new MenuItem("laugh", "Troll laugh?").SetValue(true));
+            Config.SubMenu("Misc").AddItem(new MenuItem("AutoI", "Auto Ignite").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("AutoW", "Auto W under Turrets").SetValue(false));
             Config.SubMenu("Misc").AddItem(new MenuItem("gapClose", "Auto-Knockback Gapclosers").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("stun", "Auto-Interrupt Important Spells").SetValue(true));
@@ -128,27 +137,7 @@ namespace FedMaokai
 
             Game.PrintChat("<font color=\"#00BFFF\">Fed" + ChampionName + " -</font> <font color=\"#FFFFFF\">Loaded!</font>");
 
-        }
-
-        private static void AntiGapcloser_OnEnemyGapcloser(ActiveGapcloser gapcloser)
-        {
-            if (!Config.Item("gapClose").GetValue<bool>()) return;
-
-            if (gapcloser.Sender.IsValidTarget(400f))
-            {
-                Q.Cast(gapcloser.Sender);
-            }
-        }
-
-        private static void Interrupter_OnPosibleToInterrupt(Obj_AI_Base unit, InterruptableSpell spell)
-        {
-            if (!Config.Item("stun").GetValue<bool>()) return;  
-          
-            if (unit.IsValidTarget(600f) && (spell.DangerLevel == InterruptableDangerLevel.High || spell.DangerLevel == InterruptableDangerLevel.Medium)  && Q.IsReady())
-            {
-                Q.Cast(unit);                
-            }
-        }
+        }        
 
         private static void Drawing_OnDraw(EventArgs args)
         {  
@@ -186,9 +175,65 @@ namespace FedMaokai
 
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
                     JungleFarm();
+
+                if (Config.Item("AutoW").GetValue<bool>())
+                    AutoUnderTower();
+
+                if (Config.Item("AutoSmite").GetValue<KeyBind>().Active)
+                    AutoSmite();
+
+                if (Config.Item("AutoI").GetValue<bool>())
+                    AutoIgnite();  
             }  
         }
 
+        private static void AutoIgnite()
+        {
+            var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
+            var Idamage = DamageLib.getDmg(iTarget, DamageLib.SpellType.IGNITE) * 0.80;
+
+            if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
+            {
+                Player.SummonerSpellbook.CastSpell(IgniteSlot, iTarget);
+                if (Config.Item("laugh").GetValue<bool>())
+                {
+                    Game.Say("/l");
+                }
+            }
+        }
+
+        private static void AutoSmite()
+        {
+            if (Config.Item("AutoSmite").GetValue<KeyBind>().Active)
+            {
+                float[] SmiteDmg = { 20 * Player.Level + 370, 30 * Player.Level + 330, 40 * Player.Level + 240, 50 * Player.Level + 100 };
+                string[] MonsterNames = { "LizardElder", "AncientGolem", "Worm", "Dragon" };
+                var vMinions = MinionManager.GetMinions(Player.ServerPosition, Player.SummonerSpellbook.Spells.FirstOrDefault(
+                    spell => spell.Name.Contains("smite")).SData.CastRange[0], MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
+                foreach (var vMinion in vMinions)
+                {
+                    if (vMinion != null
+                        && !vMinion.IsDead
+                        && !Player.IsDead
+                        && !Player.IsStunned
+                        && SmiteSlot != SpellSlot.Unknown
+                        && Player.SummonerSpellbook.CanUseSpell(SmiteSlot) == SpellState.Ready)
+                    {
+                        if ((vMinion.Health < SmiteDmg.Max()) && (MonsterNames.Any(name => vMinion.BaseSkinName.StartsWith(name))))
+                        {
+                            Player.SummonerSpellbook.CastSpell(SmiteSlot, vMinion);
+
+                            if (Config.Item("laugh").GetValue<bool>())
+                            {
+                                Game.Say("/l");
+                            }
+
+                        }
+                    }
+                }
+            }
+        }
+        
         private static void AutoUlt()
         {
             int inimigos = Utility.CountEnemysInRange(650);
@@ -196,11 +241,25 @@ namespace FedMaokai
             var RMana = Config.Item("ManaR").GetValue<Slider>().Value;
             var MPercentR = Player.Mana * 100 / Player.MaxMana;
 
-            if (Config.Item("MinR").GetValue<Slider>().Value >= inimigos && MPercentR >= RMana)
+            if (Config.Item("MinR").GetValue<Slider>().Value <= inimigos && MPercentR >= RMana)
             {
                 R.Cast();
             }
 
+        }
+
+        private static void AutoUnderTower()
+        {
+            var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
+
+            if (Utility.UnderTurret(wTarget, false) && W.IsReady())
+            {
+                W.Cast(wTarget);
+                if (Config.Item("laugh").GetValue<bool>())
+                {
+                    Game.Say("/l");
+                }
+            }
         }
 
         private static void Combo()
@@ -211,10 +270,11 @@ namespace FedMaokai
 
             if (wTarget != null && Config.Item("UseWCombo").GetValue<bool>() && W.IsReady())
             {
-                W.Cast(wTarget);
+                    W.Cast(wTarget);
             }
             if (qTarget != null && Config.Item("UseQCombo").GetValue<bool>() && Q.IsReady())
             {
+                if (!qTarget.IsVisible)
                 Q.Cast(qTarget);
             }
             if (eTarget != null && Config.Item("UseECombo").GetValue<bool>() && E.IsReady())
@@ -254,6 +314,7 @@ namespace FedMaokai
 
             if (qTarget != null && Config.Item("UseQHarass").GetValue<bool>() && Q.IsReady())
             {
+                if (!qTarget.IsVisible)
                 Q.Cast(qTarget);
             }
             if (eTarget != null && Config.Item("UseEHarass").GetValue<bool>() && E.IsReady())
@@ -269,6 +330,7 @@ namespace FedMaokai
 
             if (qTarget != null && Config.Item("UseQHarass").GetValue<bool>() && Q.IsReady())
             {
+                if (!qTarget.IsVisible)
                 Q.Cast(qTarget);
             }
             if (eTarget != null && Config.Item("UseEHarass").GetValue<bool>() && E.IsReady())
@@ -310,6 +372,34 @@ namespace FedMaokai
                 Q.Cast(mob);
                 E.Cast(mob);
             }
-        }        
+        }
+
+        private static void AntiGapcloser_OnEnemyGapcloser(ActiveGapcloser gapcloser)
+        {
+            if (!Config.Item("gapClose").GetValue<bool>()) return;
+
+            if (gapcloser.Sender.IsValidTarget(400f))
+            {
+                Q.Cast(gapcloser.Sender);
+            }
+        }
+
+        private static void Interrupter_OnPosibleToInterrupt(Obj_AI_Base unit, InterruptableSpell spell)
+        {
+            if (!Config.Item("stun").GetValue<bool>()) return;
+
+            if (unit.IsValidTarget(600f) && (spell.DangerLevel != InterruptableDangerLevel.Low) && Q.IsReady())
+            {
+                Q.Cast(unit);
+                if (Q.IsReady() && unit.IsValidTarget(W.Range))
+                {
+                    W.Cast(unit);
+                }
+                if (Config.Item("laugh").GetValue<bool>())
+                {
+                    Game.Say("/l");
+                }
+            }
+        }
     }
 }
