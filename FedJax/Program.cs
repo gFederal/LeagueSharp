@@ -100,16 +100,22 @@ namespace FedJax
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseQJFarm", "Use Q").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseWJFarm", "Use W").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseEJFarm", "Use E").SetValue(true));
+            Config.SubMenu("JungleFarm").AddItem(new MenuItem("WardJumpSmite", "WardJump + Smite").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("AutoSmite", "Auto Smite!").SetValue<KeyBind>(new KeyBind('J', KeyBindType.Toggle)));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("JungleFarmActive", "JungleFarm!").SetValue(new KeyBind("V".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Misc", "Misc"));
+            Config.SubMenu("Misc").AddItem(new MenuItem("laugh", "Troll laugh?").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("KS", "Use Q Kill Steal ").SetValue(false));
             Config.SubMenu("Misc").AddItem(new MenuItem("useWKS", "Use W to KS").SetValue(false));
             Config.SubMenu("Misc").AddItem(new MenuItem("AutoI", "Auto Ignite").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("stun", "Interrupt Spells").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("AutoEWQTower", "Auto Attack my tower").SetValue(false));
             Config.SubMenu("Misc").AddItem(new MenuItem("Ward", "Ward Jump!").SetValue(new KeyBind("Z".ToCharArray()[0], KeyBindType.Press)));
+
+            Config.AddSubMenu(new Menu("Drawings", "Drawings"));
+            Config.SubMenu("Drawings").AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));
+            Config.SubMenu("Drawings").AddItem(new MenuItem("Ward", "Draw Ward")).SetValue(true);            
 
             Config.AddSubMenu(new Menu("Spells", "Spells"));
             Config.SubMenu("Spells").AddItem(new MenuItem("setW", "Use W: ").SetValue(new StringList(new[] { "Every AA", "After third AA" }, 1)));
@@ -136,13 +142,8 @@ namespace FedJax
             NoTargetedItems.AddItem(new MenuItem("item3131", "Sword of the Divine").SetValue(true));
             NoTargetedItems.AddItem(new MenuItem("item3074", "Ravenous Hydra").SetValue(true));
             NoTargetedItems.AddItem(new MenuItem("item3077", "Tiamat ").SetValue(true));
-            NoTargetedItems.AddItem(new MenuItem("item3142", "Youmuu's Ghostblade").SetValue(true));
-            
+            NoTargetedItems.AddItem(new MenuItem("item3142", "Youmuu's Ghostblade").SetValue(true)); 
 
-            Config.AddSubMenu(new Menu("Drawings", "Drawings"));
-            Config.SubMenu("Drawings").AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));
-            Config.SubMenu("Drawings").AddItem(new MenuItem("Ward", "Draw Ward")).SetValue(true);
-           // Config.SubMenu("Drawings").AddItem(dmgAfterComboItem);
             Config.AddToMainMenu();
 
             Game.OnGameUpdate += Game_OnGameUpdate;
@@ -235,7 +236,7 @@ namespace FedJax
 
         private static void KillSteal()
         {
-            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Physical);
+            var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
             var Qdamage = DamageLib.getDmg(qTarget, DamageLib.SpellType.Q) * 0.95;
             var Wdamage = DamageLib.getDmg(qTarget, DamageLib.SpellType.W) * 0.95;
 
@@ -262,8 +263,11 @@ namespace FedJax
 
             if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
             {
-                Player.SummonerSpellbook.CastSpell(IgniteSlot, iTarget);                
-                Game.Say("/l");
+                Player.SummonerSpellbook.CastSpell(IgniteSlot, iTarget);
+                if (Config.Item("laugh").GetValue<bool>())
+                {
+                    Game.Say("/l");
+                }
             }
         }
 
@@ -332,21 +336,21 @@ namespace FedJax
         
         private static void Combo()
         {
+            var iTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
 
-            if (Config.Item("UseItensCombo").GetValue<bool>())
-            {
-                var iTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
+            if (iTarget != null && Config.Item("UseItensCombo").GetValue<bool>())
+            {                
                 UseItems(iTarget);
             }
             if (Config.Item("UseECombo").GetValue<bool>() && E.IsReady())
             {
                 CastSpellE();
             }
-            if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && Config.Item("UseWCombo").GetValue<bool>() && W.IsReady())
+            if (iTarget != null && Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && Config.Item("UseWCombo").GetValue<bool>() && W.IsReady())
             {
                 W.Cast();
             }
-            if (Config.Item("UseWCombo").GetValue<bool>() && Q.IsReady())
+            if (Config.Item("UseQCombo").GetValue<bool>() && Q.IsReady())
             {
                 CastSpellQ();
             }
@@ -376,7 +380,7 @@ namespace FedJax
 
             int HarassMode = Config.Item("ModeHarass").GetValue<StringList>().SelectedIndex;
 
-            if (MPercentH >= HMana)
+            if (MPercentH >= HMana && hTarget != null)
             {
                 switch (HarassMode)
                 {
@@ -503,7 +507,7 @@ namespace FedJax
             {
                 var Qdamage = DamageLib.getDmg(vMinion, DamageLib.SpellType.Q) * 0.85;
 
-                if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && W.IsReady() && Config.Item("UseWFarm").GetValue<bool>())
+                if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && W.IsReady() && Config.Item("UseWFarm").GetValue<bool>() && allMinionsQ.Count > 0)
                 {
                     W.Cast();
                 }
@@ -547,7 +551,7 @@ namespace FedJax
             if (!Config.Item("stun").GetValue<bool>())
                 return;
 
-            if (Player.Distance(vTarget) < Q.Range)
+            if (Player.Distance(vTarget) < Q.Range-50)
             {
                 E.Cast();
                 Q.Cast(vTarget);
@@ -593,7 +597,8 @@ namespace FedJax
             {
                 float[] SmiteDmg = { 20 * Player.Level + 370, 30 * Player.Level + 330, 40 * Player.Level + 240, 50 * Player.Level + 100 };
                 string[] MonsterNames = { "LizardElder", "AncientGolem", "Worm", "Dragon" };
-                var vMinions = MinionManager.GetMinions(Player.ServerPosition, Player.SummonerSpellbook.Spells.FirstOrDefault(
+                string[] Monstersteal = { "Worm", "Dragon" };
+                var vMinions = MinionManager.GetMinions(Player.ServerPosition, 500+Player.SummonerSpellbook.Spells.FirstOrDefault(
                     spell => spell.Name.Contains("smite")).SData.CastRange[0], MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
                 foreach (var vMinion in vMinions)
                 {
@@ -606,7 +611,21 @@ namespace FedJax
                     {
                         if ((vMinion.Health < SmiteDmg.Max()) && (MonsterNames.Any(name => vMinion.BaseSkinName.StartsWith(name))))
                         {
+                            if (Config.Item("WardJumpSmite").GetValue<bool>())
+                            {
+                                if (Player.Distance(vMinion) > 700 && (Monstersteal.Any(name => vMinion.BaseSkinName.StartsWith(name))))
+                                {
+                                    Jumper.wardJump(Game.CursorPos.To2D());
+                                }
+                            }
+
                             Player.SummonerSpellbook.CastSpell(SmiteSlot, vMinion);
+
+                            if (Config.Item("laugh").GetValue<bool>())
+                            {
+                                Game.Say("/l");
+                            }
+
                         }
                     }
                 }
