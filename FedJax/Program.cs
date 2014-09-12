@@ -368,6 +368,9 @@ namespace FedJax
 
         private static void Harass()
         {
+            var hTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
+            var heTarget = SimpleTs.GetTarget(Q.Range-100, SimpleTs.DamageType.Physical);
+
             var HMana = Config.Item("ManaHarass").GetValue<Slider>().Value;
             var MPercentH = Player.Mana * 100 / Player.MaxMana;
 
@@ -381,10 +384,18 @@ namespace FedJax
                         {
                             if (Q.IsReady() && W.IsReady() && E.IsReady())
                             {
-                                CastSpellQ();
+                                if (!Config.Item("UnderTurretCombo").GetValue<bool>())
+                                {
+                                    if (!Utility.UnderTurret(hTarget))
+                                        Q.Cast(hTarget);
+                                }
+                                else
+                                {
+                                    Q.Cast(hTarget);
+                                }
+                                
                                 W.Cast();
-                                CastSpellE();
-                                ActivateE();
+                                E.Cast(heTarget);                                
                             }
                             break;
                         }
@@ -392,7 +403,15 @@ namespace FedJax
                         {
                             if (Q.IsReady() && W.IsReady())
                             {
-                                CastSpellQ();
+                                if (!Config.Item("UnderTurretCombo").GetValue<bool>())
+                                {
+                                    if (!Utility.UnderTurret(hTarget))
+                                        Q.Cast(hTarget);
+                                }
+                                else
+                                {
+                                    Q.Cast(hTarget);
+                                }
                                 W.Cast();
                             }
                             break;
@@ -401,9 +420,16 @@ namespace FedJax
                         {
                             if (Q.IsReady() && E.IsReady())
                             {
-                                CastSpellQ();
-                                CastSpellE();
-                                ActivateE();
+                                if (!Config.Item("UnderTurretCombo").GetValue<bool>())
+                                {
+                                    if (!Utility.UnderTurret(hTarget))
+                                        Q.Cast(hTarget);
+                                }
+                                else
+                                {
+                                    Q.Cast(hTarget);
+                                }
+                                E.Cast(heTarget);
                             }
                             break;
                         }
@@ -411,9 +437,18 @@ namespace FedJax
                         {
                             if (Q.IsReady() && E.IsReady())
                             {
-                                CastSpellE();
-                                CastSpellQ();
-                                ActivateE();
+                                
+                                if (!Config.Item("UnderTurretCombo").GetValue<bool>())
+                                {
+                                    if (!Utility.UnderTurret(hTarget))
+                                        E.Cast(heTarget);
+                                        Q.Cast(hTarget);
+                                }
+                                else
+                                {
+                                    E.Cast(heTarget);
+                                    Q.Cast(hTarget);
+                                }
                             }
                             break;
                         }
