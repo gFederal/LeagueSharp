@@ -26,18 +26,23 @@ namespace FedJax
         public static Spell E;
         public static Spell R;
 
-        public static SpellSlot IgniteSlot;
+        private static SpellSlot IgniteSlot;
+        private static SpellSlot SmiteSlot;
 
         public static bool Eactive = false;
         public static bool Wactive = false;
-        public static int countAttack = 0;
+        public static int  countAttack = 0;
 
+        public static Map map;
         public static Menu Config;
+        public static Menu TargetedItems;
+        public static Menu NoTargetedItems;
 
         private static Obj_AI_Hero Player;
 
         private static void Main(string[] args)
         {
+            map = new Map();
             CustomEvents.Game.OnGameLoad += Game_OnGameLoad;
         }
 
@@ -47,12 +52,13 @@ namespace FedJax
 
             if (Player.BaseSkinName != ChampionName) return;
 
-            Q = new Spell(SpellSlot.Q, 700);
-            W = new Spell(SpellSlot.W);
-            E = new Spell(SpellSlot.E, 200);
-            R = new Spell(SpellSlot.R, 700);
+            Q = new Spell(SpellSlot.Q, 700f);
+            W = new Spell(SpellSlot.W, 200f);
+            E = new Spell(SpellSlot.E, 200f);
+            R = new Spell(SpellSlot.R, 200f);
 
             IgniteSlot = Player.GetSpellSlot("SummonerDot");
+            SmiteSlot = Player.GetSpellSlot("SummonerSmite");
 
             SpellList.AddRange(new[] { Q, W, E, R });
 
@@ -65,8 +71,11 @@ namespace FedJax
             Config.AddSubMenu(new Menu("Orbwalking", "Orbwalking"));
             Orbwalker = new Orbwalking.Orbwalker(Config.SubMenu("Orbwalking"));
 
-            Config.AddSubMenu(new Menu("Combo", "Combo"));            
+            Config.AddSubMenu(new Menu("Combo", "Combo"));
+            Config.SubMenu("Combo").AddItem(new MenuItem("UseQCombo", "Use Q").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseWCombo", "Use W").SetValue(true));
+            Config.SubMenu("Combo").AddItem(new MenuItem("UseECombo", "Use E").SetValue(true));            
+            Config.SubMenu("Combo").AddItem(new MenuItem("UnderTurretCombo", "Q Under Turret?").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseItensCombo", "Use Items in Combo").SetValue(true)); 
             Config.SubMenu("Combo").AddItem(new MenuItem("ComboActive", "Combo!").SetValue(new KeyBind(32, KeyBindType.Press)));
 
@@ -74,6 +83,8 @@ namespace FedJax
             Config.SubMenu("Harass").AddItem(new MenuItem("UseQHarass", "Use Q in Harass").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseWHarass", "Use W in Harass").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseEHarass", "Use E in Harass").SetValue(true));
+            Config.SubMenu("Harass").AddItem(new MenuItem("UnderTurretHarass", "Q Under Turret?").SetValue(false));
+            Config.SubMenu("Harass").AddItem(new MenuItem("ModeHarass", "Harass Mode: ").SetValue(new StringList(new[] { "Q+W+E", "Q+W", "Q+E", "E+Q", "Default" }, 4)));
             Config.SubMenu("Harass").AddItem(new MenuItem("ManaHarass", "Dont Harass if Mana < %").SetValue(new Slider(50, 100, 0)));            
             Config.SubMenu("Harass").AddItem(new MenuItem("HarassActive", "Harass!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
 
@@ -89,6 +100,7 @@ namespace FedJax
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseQJFarm", "Use Q").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseWJFarm", "Use W").SetValue(true));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("UseEJFarm", "Use E").SetValue(true));
+            Config.SubMenu("JungleFarm").AddItem(new MenuItem("AutoSmite", "Auto Smite!").SetValue<KeyBind>(new KeyBind('J', KeyBindType.Toggle)));
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("JungleFarmActive", "JungleFarm!").SetValue(new KeyBind("V".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Misc", "Misc"));
@@ -96,7 +108,8 @@ namespace FedJax
             Config.SubMenu("Misc").AddItem(new MenuItem("useWKS", "Use W to KS").SetValue(false));
             Config.SubMenu("Misc").AddItem(new MenuItem("AutoI", "Auto Ignite").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("stun", "Interrupt Spells").SetValue(true));
-            Config.SubMenu("Misc").AddItem(new MenuItem("wardJump", "Ward Jump!").SetValue(new KeyBind("Z".ToCharArray()[0], KeyBindType.Press)));
+            Config.SubMenu("Misc").AddItem(new MenuItem("AutoEWQTower", "Auto Attack my tower").SetValue(false));
+            Config.SubMenu("Misc").AddItem(new MenuItem("Ward", "Ward Jump!").SetValue(new KeyBind("Z".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Spells", "Spells"));
             Config.SubMenu("Spells").AddItem(new MenuItem("setW", "Use W: ").SetValue(new StringList(new[] { "Every AA", "After third AA" }, 1)));
@@ -104,24 +117,38 @@ namespace FedJax
             Config.SubMenu("Spells").AddItem(new MenuItem("activeE", "Activate E: ").SetValue(new StringList(new[] { "Instantly", "Max Radius", "No" }, 1)));
             Config.SubMenu("Spells").AddItem(new MenuItem("AutoUlt", "Enable Auto Ult").SetValue(true));
             Config.SubMenu("Spells").AddItem(new MenuItem("minEnemies", "Min. Enemies in Range").SetValue(new Slider(2, 5, 0)));
+                        
+            Menu menuUseItems = new Menu("Use Items", "menuUseItems");
+            Config.SubMenu("Spells").AddSubMenu(menuUseItems);
+            
+            TargetedItems = new Menu("Targeted Items", "menuTargetItems");
+            menuUseItems.AddSubMenu(TargetedItems);
+            TargetedItems.AddItem(new MenuItem("item3153", "Blade of the Ruined King").SetValue(true));
+            TargetedItems.AddItem(new MenuItem("item3143", "Randuin's Omen").SetValue(true));
+            TargetedItems.AddItem(new MenuItem("item3144", "Bilgewater Cutlass").SetValue(true));
+            TargetedItems.AddItem(new MenuItem("item3146", "Hextech Gunblade").SetValue(true));
+            TargetedItems.AddItem(new MenuItem("item3184", "Entropy ").SetValue(true));
 
-
-            var dmgAfterComboItem = new MenuItem("DamageAfterCombo", "Draw damage after a rotation").SetValue(true);
-            Utility.HpBarDamageIndicator.DamageToUnit += hero => (float)(DamageLib.getDmg(hero, DamageLib.SpellType.Q));
-            Utility.HpBarDamageIndicator.Enabled = dmgAfterComboItem.GetValue<bool>();
-            dmgAfterComboItem.ValueChanged += delegate(object sender, OnValueChangeEventArgs eventArgs)
-            {
-                Utility.HpBarDamageIndicator.Enabled = eventArgs.GetNewValue<bool>();
-            };
+            // Extras -> Use Items -> AOE Items
+            NoTargetedItems = new Menu("AOE Items", "menuNonTargetedItems");
+            menuUseItems.AddSubMenu(NoTargetedItems);
+            NoTargetedItems.AddItem(new MenuItem("item3180", "Odyn's Veil").SetValue(true));
+            NoTargetedItems.AddItem(new MenuItem("item3131", "Sword of the Divine").SetValue(true));
+            NoTargetedItems.AddItem(new MenuItem("item3074", "Ravenous Hydra").SetValue(true));
+            NoTargetedItems.AddItem(new MenuItem("item3077", "Tiamat ").SetValue(true));
+            NoTargetedItems.AddItem(new MenuItem("item3142", "Youmuu's Ghostblade").SetValue(true));
+            
 
             Config.AddSubMenu(new Menu("Drawings", "Drawings"));
-            Config.SubMenu("Drawings").AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));            
-            Config.SubMenu("Drawings").AddItem(dmgAfterComboItem);
+            Config.SubMenu("Drawings").AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));
+            Config.SubMenu("Drawings").AddItem(new MenuItem("Ward", "Draw Ward")).SetValue(true);
+           // Config.SubMenu("Drawings").AddItem(dmgAfterComboItem);
             Config.AddToMainMenu();
 
             Game.OnGameUpdate += Game_OnGameUpdate;
             Drawing.OnDraw += Drawing_OnDraw;
             Obj_AI_Base.OnProcessSpellCast += Obj_AI_Hero_OnProcessSpellCast;
+            Interrupter.OnPosibleToInterrupt += Interrupter_OnPosibleToInterrupt;
 
             Game.PrintChat("<font color=\"#00BFFF\">Fed" + ChampionName + " -</font> <font color=\"#FFFFFF\">Loaded!</font>");
 
@@ -132,10 +159,15 @@ namespace FedJax
             foreach (var spell in SpellList)
             {
                 var menuItem = Config.Item(spell.Slot + "Range").GetValue<Circle>();
-                if (menuItem.Active)
+                if (menuItem.Active && spell.Level > 0)
                 {
-                    Utility.DrawCircle(Player.Position, spell.Range, menuItem.Color);
+                    Utility.DrawCircle(Player.Position, spell.Range, menuItem.Color, 1, 5);
                 }
+            }
+
+            if (Config.Item("Ward").GetValue<bool>())
+            {
+                Drawing.DrawCircle(Player.Position, 600, System.Drawing.Color.Aquamarine);
             }
         }
 
@@ -162,11 +194,43 @@ namespace FedJax
                 }
 
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
+                {
                     JungleFarm();
+                }
 
                 if (Config.Item("KS").GetValue<bool>() && !Config.Item("ComboActive").GetValue<KeyBind>().Active)
-                    KillSteal();                
+                {
+                    KillSteal();
+                }
+
+                if (Config.Item("Ward").GetValue<KeyBind>().Active)
+                {
+                    Jumper.wardJump(Game.CursorPos.To2D());
+                }
+
+                if (Config.Item("AutoSmite").GetValue<KeyBind>().Active)
+                {
+                    AutoSmite();
+                }
+
+                if (Config.Item("AutoEWQTower").GetValue<KeyBind>().Active)
+                {
+                    AutoUnderTower();
+                }
+                
             }            
+        }
+
+        private static void AutoUnderTower()
+        {
+            var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
+
+            if (Utility.UnderTurret(qTarget, false) && Q.IsReady() && E.IsReady())
+            {
+                E.Cast();
+                W.Cast();
+                Q.Cast(qTarget);
+            }
         }
 
         private static void KillSteal()
@@ -194,7 +258,7 @@ namespace FedJax
         private static void AutoIgnite()
         {
             var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
-            var Idamage = DamageLib.getDmg(iTarget, DamageLib.SpellType.IGNITE) * 0.95;
+            var Idamage = DamageLib.getDmg(iTarget, DamageLib.SpellType.IGNITE) * 0.80;
 
             if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
             {
@@ -216,11 +280,22 @@ namespace FedJax
         
         private static void CastSpellQ()
         {
-            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Physical);
-            if (qTarget != null && Q.IsReady() && Player.Distance(qTarget) <= Q.Range && Environment.TickCount - E.LastCastAttemptT >= 600 + Game.Ping)
+            var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
+            
+            if (qTarget != null && Player.Distance(qTarget) <= Q.Range && Environment.TickCount - E.LastCastAttemptT >= 600 + Game.Ping)
             {
+                if (!Config.Item("UnderTurretCombo").GetValue<bool>() && Config.Item("ComboActive").GetValue<KeyBind>().Active || !Config.Item("UnderTurretHarass").GetValue<bool>() && Config.Item("HarassActive").GetValue<KeyBind>().Active)
+                {
+                    if (!Utility.UnderTurret(qTarget))
+                    {
+                        Q.Cast(qTarget);
+                    }                    
+                }
+                else
+                {
                     Q.Cast(qTarget);
-            }
+                }
+            }            
         }
 
         private static void CastSpellE()
@@ -230,15 +305,15 @@ namespace FedJax
                 Eactive = false;
             }
 
-            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Physical);
+            var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
             var useEi = Config.Item("setE").GetValue<StringList>().SelectedIndex;
 
-            if (!Eactive && qTarget != null && (useEi == 0 && Q.IsReady() && (Player.Distance(qTarget) <= Q.Range - 100 || Player.Distance(qTarget) <= E.Range)) || useEi == 1 && Player.Distance(qTarget) <= E.Range)
+            if (!Eactive && qTarget != null  && (useEi == 0 && Q.IsReady() && (Player.Distance(qTarget) <= Q.Range - 100 || Player.Distance(qTarget) <= E.Range)) || useEi == 1 && Player.Distance(qTarget) <= E.Range)
             {                
                     E.Cast();
                     E.LastCastAttemptT = Environment.TickCount;
                     Eactive = true;                
-            } 
+            }            
         }
 
         private static void ActivateE()
@@ -257,14 +332,28 @@ namespace FedJax
         
         private static void Combo()
         {
-            if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && W.IsReady())
+
+            if (Config.Item("UseItensCombo").GetValue<bool>())
+            {
+                var iTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
+                UseItems(iTarget);
+            }
+            if (Config.Item("UseECombo").GetValue<bool>() && E.IsReady())
+            {
+                CastSpellE();
+            }
+            if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && Config.Item("UseWCombo").GetValue<bool>() && W.IsReady())
             {
                 W.Cast();
             }
-
-            CastSpellE();
-            CastSpellQ();
-            ActivateE();
+            if (Config.Item("UseWCombo").GetValue<bool>() && Q.IsReady())
+            {
+                CastSpellQ();
+            }
+            if (Config.Item("UseECombo").GetValue<bool>())
+            {
+                ActivateE();
+            }
 
             if (Config.Item("AutoUlt").GetValue<bool>() && R.IsReady())
             {
@@ -282,30 +371,80 @@ namespace FedJax
             var HMana = Config.Item("ManaHarass").GetValue<Slider>().Value;
             var MPercentH = Player.Mana * 100 / Player.MaxMana;
 
+            int HarassMode = Config.Item("ModeHarass").GetValue<StringList>().SelectedIndex;
+
             if (MPercentH >= HMana)
             {
-                if (Config.Item("UseWHarass").GetValue<bool>() && W.IsReady())
+                switch (HarassMode)
                 {
-                    W.Cast();
-                }
-                if (Config.Item("UseEHarass").GetValue<bool>())
-                {
-                    CastSpellE();
-                }
-                if (Config.Item("UseQHarass").GetValue<bool>())
-                {
-                    CastSpellQ();
-                }
-                if (Config.Item("UseEHarass").GetValue<bool>())
-                {
-                    ActivateE();
-                }
+                    case 0:
+                        {
+                            if (Q.IsReady() && W.IsReady() && E.IsReady())
+                            {
+                                CastSpellQ();
+                                W.Cast();
+                                CastSpellE();
+                                ActivateE();
+                            }
+                            break;
+                        }
+                    case 1:
+                        {
+                            if (Q.IsReady() && W.IsReady())
+                            {
+                                CastSpellQ();
+                                W.Cast();
+                            }
+                            break;
+                        }
+                    case 2:
+                        {
+                            if (Q.IsReady() && E.IsReady())
+                            {
+                                CastSpellQ();
+                                CastSpellE();
+                                ActivateE();
+                            }
+                            break;
+                        }
+                    case 3:
+                        {
+                            if (Q.IsReady() && E.IsReady())
+                            {
+                                CastSpellE();
+                                CastSpellQ();
+                                ActivateE();
+                            }
+                            break;
+                        }
+                    case 4:
+                        {
+                            if (Config.Item("UseWHarass").GetValue<bool>() && W.IsReady())
+                            {
+                                W.Cast();
+                            }
+                            if (Config.Item("UseEHarass").GetValue<bool>() && E.IsReady())
+                            {
+                                CastSpellE();
+                            }
+                            if (Config.Item("UseQHarass").GetValue<bool>() && Q.IsReady())
+                            {
+                                CastSpellQ();
+                            }
+                            if (Config.Item("UseEHarass").GetValue<bool>())
+                            {
+                                ActivateE();
+                            }
+                            break;
+                        }                       
+                }                              
+                
             }
         }        
 
         private static void FreezeFarm()
         {
-            var allMinionsQ = MinionManager.GetMinions(Player.ServerPosition, Q.Range + Q.Width + 30, MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
+            var allMinionsQ = MinionManager.GetMinions(Player.ServerPosition, Q.Range, MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
 
             foreach (var vMinion in allMinionsQ)
             {
@@ -320,7 +459,7 @@ namespace FedJax
 
         private static void LaneClear()
         {
-            var allMinionsQ = MinionManager.GetMinions(Player.ServerPosition, Q.Range + Q.Width + 30, MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health); 
+            var allMinionsQ = MinionManager.GetMinions(Player.ServerPosition, Q.Range, MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health); 
            
             var FMana = Config.Item("ManaFarm").GetValue<Slider>().Value;
             var MPercent = Player.Mana * 100 / Player.MaxMana;
@@ -366,6 +505,77 @@ namespace FedJax
                     E.Cast();
                 }
             } 
+        }
+
+        private static void Interrupter_OnPosibleToInterrupt(Obj_AI_Base vTarget, InterruptableSpell args)
+        {            
+            if (!Config.Item("stun").GetValue<bool>())
+                return;
+
+            if (Player.Distance(vTarget) < Q.Range)
+            {
+                E.Cast();
+                Q.Cast(vTarget);
+            }
+        }
+
+        private static InventorySlot GetInventorySlot(int ID)
+        {
+            return ObjectManager.Player.InventoryItems.FirstOrDefault(item => (item.Id == (ItemId)ID && item.Stacks >= 1) || (item.Id == (ItemId)ID && item.Charges >= 1));
+        }
+
+        public static void UseItems(Obj_AI_Hero vTarget)
+        {
+            if (vTarget != null)
+            {
+                foreach (MenuItem menuItem in TargetedItems.Items)
+                {
+                    var useItem = TargetedItems.Item(menuItem.Name).GetValue<bool>();
+                    if (useItem)
+                    {
+                        var itemID = Convert.ToInt16(menuItem.Name.ToString().Substring(4, 4));
+                        if (Items.HasItem(itemID) && Items.CanUseItem(itemID) && GetInventorySlot(itemID) != null)
+                            Items.UseItem(itemID, vTarget);
+                    }
+                }
+
+                foreach (MenuItem menuItem in NoTargetedItems.Items)
+                {
+                    var useItem = NoTargetedItems.Item(menuItem.Name).GetValue<bool>();
+                    if (useItem)
+                    {
+                        var itemID = Convert.ToInt16(menuItem.Name.ToString().Substring(4, 4));
+                        if (Items.HasItem(itemID) && Items.CanUseItem(itemID) && GetInventorySlot(itemID) != null)
+                            Items.UseItem(itemID);
+                    }
+                }
+            }
+        }
+
+        private static void AutoSmite()
+        {
+            if (Config.Item("AutoSmite").GetValue<KeyBind>().Active)
+            {
+                float[] SmiteDmg = { 20 * Player.Level + 370, 30 * Player.Level + 330, 40 * Player.Level + 240, 50 * Player.Level + 100 };
+                string[] MonsterNames = { "LizardElder", "AncientGolem", "Worm", "Dragon" };
+                var vMinions = MinionManager.GetMinions(Player.ServerPosition, Player.SummonerSpellbook.Spells.FirstOrDefault(
+                    spell => spell.Name.Contains("smite")).SData.CastRange[0], MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
+                foreach (var vMinion in vMinions)
+                {
+                    if (vMinion != null
+                        && !vMinion.IsDead
+                        && !Player.IsDead
+                        && !Player.IsStunned
+                        && SmiteSlot != SpellSlot.Unknown
+                        && Player.SummonerSpellbook.CanUseSpell(SmiteSlot) == SpellState.Ready)
+                    {
+                        if ((vMinion.Health < SmiteDmg.Max()) && (MonsterNames.Any(name => vMinion.BaseSkinName.StartsWith(name))))
+                        {
+                            Player.SummonerSpellbook.CastSpell(SmiteSlot, vMinion);
+                        }
+                    }
+                }
+            }
         }
 
         private static void Obj_AI_Hero_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
