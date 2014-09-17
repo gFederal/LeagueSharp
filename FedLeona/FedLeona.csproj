@@ -36,13 +36,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="LeagueSharp">
-      <HintPath>C:\Users\Fernando\Desktop\Binaries\Repositories\1BA0420E\trunk\Syndra\bin\Release\LeagueSharp.dll</HintPath>
+      <HintPath>C:\Users\Fernando\Desktop\AssemblyInstaller\LSharp\Assemblies\System\LeagueSharp.dll</HintPath>
     </Reference>
     <Reference Include="LeagueSharp.Common">
-      <HintPath>C:\Users\Fernando\Desktop\Binaries\Repositories\1BA0420E\trunk\Syndra\bin\Release\LeagueSharp.Common.dll</HintPath>
+      <HintPath>C:\Users\Fernando\Desktop\AssemblyInstaller\LSharp\Assemblies\System\LeagueSharp.Common.dll</HintPath>
     </Reference>
     <Reference Include="SharpDX">
-      <HintPath>C:\Users\Fernando\Desktop\Binaries\Repositories\1BA0420E\trunk\Syndra\bin\Release\SharpDX.dll</HintPath>
+      <HintPath>C:\Users\Fernando\Desktop\AssemblyInstaller\LSharp\Assemblies\System\SharpDX.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -56,7 +56,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="SolarFlare.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -85,6 +84,9 @@
     <Content Include="leona.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>copy /y "$(TargetPath)" "C:\Users\Fernando\Desktop\AssemblyInstaller\LSharp\Assemblies\"</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

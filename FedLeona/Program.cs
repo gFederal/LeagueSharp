@@ -174,19 +174,15 @@ namespace FedLeona
                 if (Rmode != 0 && Rmode != 1)
                 {
                     var Rmin = Config.Item("MinR").GetValue<Slider>().Value;
-                    var result = SolarFlare.GetCastPosition(rTarget);
 
-                    if (result.HitNumber >= Rmin && result.Valid)
-                    {
-                        R.Cast(result.CastPosition);
-                    }
+                    R.CastIfWillHit(rTarget, Rmin);
                 }
 
                 if (Rmode != 0 && Rmode != 2)
                 {
                     PredictionOutput rPred = R.GetPrediction(rTarget);
                     if (rPred.Hitchance == HitChance.Immobile)
-                        R.Cast(rTarget);
+                        R.Cast(rPred.CastPosition);
                 }
             }
 
