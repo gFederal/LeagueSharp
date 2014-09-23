@@ -100,7 +100,8 @@ namespace FedNocturne
             Config.AddToMainMenu();
 
             Game.OnGameUpdate += Game_OnGameUpdate;
-            Drawing.OnDraw += Drawing_OnDraw;            
+            Drawing.OnDraw += Drawing_OnDraw;
+            Drawing.OnEndScene += Drawing_OnEndScene;
             Interrupter.OnPossibleToInterrupt += Interrupter_OnPossibleToInterrupt;
 
             Game.PrintChat("<font color=\"#00BFFF\">Fed" + ChampionName + " -</font> <font color=\"#FFFFFF\">Loaded!</font>");
