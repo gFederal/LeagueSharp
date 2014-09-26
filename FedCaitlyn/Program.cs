@@ -21,6 +21,7 @@ namespace FedCaitlyn
 
         public static Spell Q, W, E, R;
         public static Vector2 PingLocation;
+        public static int LastPingT = 0;
 
         public static Menu Config;
         private static Obj_AI_Hero Player;
@@ -71,8 +72,9 @@ namespace FedCaitlyn
             Config.AddSubMenu(new Menu("90 Caliber", "90 Caliber"));
             Config.SubMenu("90 Caliber").AddItem(new MenuItem("AGConoff", "AntiGapClose with E").SetValue(true));
             Config.SubMenu("90 Caliber").AddItem(new MenuItem("KillEQ", "Auto E-Q Kill").SetValue(true));
-            Config.SubMenu("90 Caliber").AddItem(new MenuItem("UseEQC", "Use E-Q Combo").SetValue(new KeyBind("Z".ToCharArray()[0], KeyBindType.Press)));
+            Config.SubMenu("90 Caliber").AddItem(new MenuItem("UseEQC", "Use E-Q Combo").SetValue(new KeyBind("G".ToCharArray()[0], KeyBindType.Press)));
             Config.SubMenu("90 Caliber").AddItem(new MenuItem("PeelE", "Use E defensively").SetValue(true));
+            Config.SubMenu("90 Caliber").AddItem(new MenuItem("JumpE", "Jump to Mouse").SetValue(new KeyBind("Z".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Ace Hole", "Ace Hole"));
             Config.SubMenu("Ace Hole").AddItem(new MenuItem("rKill", "R Killshot").SetValue(new KeyBind("R".ToCharArray()[0], KeyBindType.Press)));
@@ -111,9 +113,19 @@ namespace FedCaitlyn
                 AutoCC();
             }
 
+            if (Config.Item("autotpW").GetValue<bool>())
+            {
+                TrapTP();
+            }
+
             if (Config.Item("PeelE").GetValue<bool>())
             {
                 PeelE();
+            }
+
+            if (Config.Item("JumpE").GetValue<KeyBind>().Active)
+            {
+                JumptoMouse();
             }
 
             if (Config.Item("UseEQC").GetValue<KeyBind>().Active)
@@ -124,6 +136,14 @@ namespace FedCaitlyn
             if (Config.Item("KillQ").GetValue<bool>() || Config.Item("KillEQ").GetValue<bool>())
             {
                 Killer();
+            }
+
+            if (R.IsReady() && Config.Item("pingkillable").GetValue<bool>())
+            {
+                foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => h.IsValidTarget(GetRRange()) && (float)ObjectManager.Player.GetSpellDamage(h, SpellSlot.R) * 0.9 > h.Health))
+                {
+                    Ping(enemy.Position.To2D());
+                }
             }
         }
 
@@ -141,6 +161,25 @@ namespace FedCaitlyn
                     E.Cast(enemy);
                 }
             }
+        }
+
+        private static void JumptoMouse()
+        {
+            if (E.IsReady())
+            {
+                var pos = ObjectManager.Player.ServerPosition.To2D().Extend(Game.CursorPos.To2D(), -300).To3D();
+                E.Cast(pos, true);
+            }
+        }
+
+        // credits: madk
+        private static void TrapTP()
+        {
+            if (ObjectManager.Player.Spellbook.CanUseSpell(SpellSlot.W) != SpellState.Ready)
+                return;
+
+            foreach (var Object in ObjectManager.Get<Obj_AI_Base>().Where(Obj => Obj.Distance(ObjectManager.Player) < 800f && Obj.Team != ObjectManager.Player.Team && Obj.HasBuff("teleport_target", true)))
+                ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Object.Position);
         }
 
         private static void ComboEQ()
@@ -302,23 +341,15 @@ namespace FedCaitlyn
             foreach (var target in Program.Helper.EnemyInfo.Where(x =>
              x.Player.IsVisible && x.Player.IsValidTarget(GetRRange()) && !x.Player.IsDead && DamageLib.getDmg(x.Player, DamageLib.SpellType.R) * 0.9 >= x.Player.Health))
             {
-                victims += target.Player.ChampionName + " ";
-
-                if (!R.IsReady() || !Config.Item("pingkillable").GetValue<bool>() ||
-                    (target.LastPinged != 0 && Environment.TickCount - target.LastPinged <= 9000))
-                    continue;
-                if (!(ObjectManager.Player.Distance(target.Player) < GetRRange()) || !(ObjectManager.Player.Distance(target.Player) > 1200) ||
-                    (!target.Player.IsVisible))
-                    continue;
-
-                Ping(target.Player.Position.To2D());
-                target.LastPinged = Environment.TickCount;
+                victims += target.Player.ChampionName + " ";                
             }
 
         }
 
         private static void Ping(Vector2 position)
         {
+            if (Environment.TickCount - LastPingT < 30 * 1000) return;
+            LastPingT = Environment.TickCount;
             PingLocation = position;
             SimplePing();
             Utility.DelayAction.Add(150, SimplePing);
