@@ -17,10 +17,10 @@ namespace FedNocturne
     {
         public const string ChampionName = "Nocturne";
         public static Orbwalking.Orbwalker Orbwalker;
-        public static Helper Helper;
-
+        
         public static Spell Q, W, E, R;
         public static Vector2 PingLocation;
+        public static int LastPingT = 0;
 
         private static SpellSlot IgniteSlot;
         private static SpellSlot SmiteSlot;
@@ -155,17 +155,23 @@ namespace FedNocturne
             {
                 AutoIgnite();
             }
-        }
+
+            if (R.IsReady() && Config.Item("useR_Killableping").GetValue<bool>())
+            {
+                foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => h.IsValidTarget(GetRRange()) && EnemmylowHP(Config.Item("HPR").GetValue<Slider>().Value, GetRRange())))
+                {
+                    Ping(enemy.Position.To2D());
+                }
+            }
+        } 
         private static void AutoIgnite()
         {
-            if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready)
+            var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
+            var Idamage = ObjectManager.Player.GetSummonerSpellDamage(iTarget, Damage.SummonerSpell.Ignite) * 0.90;
+
+            if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
             {
-                const int range = 600;
-                foreach (var enemy in Program.Helper.EnemyTeam.Where(hero => hero.IsValidTarget(range) && DamageLib.getDmg(hero, DamageLib.SpellType.IGNITE) >= hero.Health))
-                {
-                    ObjectManager.Player.SummonerSpellbook.CastSpell(SmiteSlot, enemy);
-                    return;
-                }
+                Player.SummonerSpellbook.CastSpell(IgniteSlot, iTarget);                
             }
         }
         private static void AutoSmite()
@@ -226,8 +232,8 @@ namespace FedNocturne
                             }
                             break;
                         case 2:
-                            if ((enemy.Health - DamageLib.CalcMagicDmg(enemy.Health, enemy)) <
-                                        (enemy.Health - DamageLib.CalcMagicDmg(newtarget.Health, newtarget)))
+                            if ((enemy.Health - Damage.CalcDamage(ObjectManager.Player, enemy, Damage.DamageType.Magical, enemy.Health)) <
+                                        (enemy.Health - Damage.CalcDamage(ObjectManager.Player, newtarget, Damage.DamageType.Magical, newtarget.Health)))
                             {
                                 newtarget = enemy;
                             }
@@ -353,6 +359,8 @@ namespace FedNocturne
         }
         private static void Ping(Vector2 position)
         {
+            if (Environment.TickCount - LastPingT < 30 * 1000) return;
+            LastPingT = Environment.TickCount;
             PingLocation = position;
             SimplePing();
             Utility.DelayAction.Add(150, SimplePing);
@@ -390,24 +398,7 @@ namespace FedNocturne
             if (Config.Item("Draw_R").GetValue<bool>())
                 if (R.Level > 0)
                     Utility.DrawCircle(ObjectManager.Player.Position, GetRRange(), R.IsReady() ? Color.Green : Color.Red);
-
-            var victims = "";
-
-            foreach (var target in Program.Helper.EnemyInfo.Where(x =>
-             x.Player.IsVisible && x.Player.IsValidTarget(GetRRange()) && !x.Player.IsDead && EnemmylowHP(Config.Item("HPR").GetValue<Slider>().Value, GetRRange())))
-            {
-                victims += target.Player.ChampionName + " ";
-
-                if (!R.IsReady() || !Config.Item("useR_Killableping").GetValue<bool>() ||
-                    (target.LastPinged != 0 && Environment.TickCount - target.LastPinged <= 9000))
-                    continue;
-                if (!(ObjectManager.Player.Distance(target.Player) < GetRRange()) ||
-                    (!target.Player.IsVisible))
-                    continue;
-
-                Ping(target.Player.Position.To2D());
-                target.LastPinged = Environment.TickCount;
-            }
+            
         }
         private static void Interrupter_OnPossibleToInterrupt(Obj_AI_Base unit, InterruptableSpell spell)
         {
