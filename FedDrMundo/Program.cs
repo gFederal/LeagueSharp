@@ -104,7 +104,7 @@ namespace FedDrMundo
             Config.SubMenu("Misc").AddItem(new MenuItem("percenthp", "Life Saving Ult %").SetValue(new Slider(30, 100, 0)));
 
             var dmgAfterComboItem = new MenuItem("DamageAfterCombo", "Draw damage after a rotation").SetValue(true);
-            Utility.HpBarDamageIndicator.DamageToUnit += hero => (float)(DamageLib.getDmg(hero, DamageLib.SpellType.Q));
+            Utility.HpBarDamageIndicator.DamageToUnit += hero => (float)(ObjectManager.Player.GetSpellDamage(hero, SpellSlot.Q));
             Utility.HpBarDamageIndicator.Enabled = dmgAfterComboItem.GetValue<bool>();
             dmgAfterComboItem.ValueChanged += delegate(object sender, OnValueChangeEventArgs eventArgs)
             {
@@ -221,7 +221,7 @@ namespace FedDrMundo
         private static void AutoIgnite()
         {
             var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
-            var Idamage = DamageLib.getDmg(iTarget, DamageLib.SpellType.IGNITE) * 0.80;
+            var Idamage = ObjectManager.Player.GetSummonerSpellDamage(iTarget, Damage.SummonerSpell.Ignite) * 0.90;
 
             if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
             {
@@ -247,7 +247,7 @@ namespace FedDrMundo
         {
             int qRange = Config.Item("RangeQ").GetValue<Slider>().Value;
             var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);
-            var Qdamage = DamageLib.getDmg(qTarget, DamageLib.SpellType.Q) * 0.95;
+            var Qdamage = ObjectManager.Player.GetSpellDamage(qTarget, SpellSlot.Q) * 0.95;
 
             if (qTarget != null && Config.Item("UseQCombo").GetValue<bool>() && Q.IsReady() && Player.Distance(qTarget) <= qRange && qTarget.Health < Qdamage)
             {
@@ -388,7 +388,7 @@ namespace FedDrMundo
 
             foreach (var vMinion in allMinionsQ)
             {
-                var Qdamage = DamageLib.getDmg(vMinion, DamageLib.SpellType.Q) * 0.85;
+                var Qdamage = ObjectManager.Player.GetSpellDamage(vMinion, SpellSlot.Q) * 0.85;
 
                 if (Config.Item("UseQFarm").GetValue<bool>() && Q.IsReady() && Qdamage >= Q.GetHealthPrediction(vMinion))
                 {
@@ -404,7 +404,7 @@ namespace FedDrMundo
 
             foreach (var vMinion in allMinionsQ)
             {
-                var Qdamage = DamageLib.getDmg(vMinion, DamageLib.SpellType.Q) * 0.85;
+                var Qdamage = ObjectManager.Player.GetSpellDamage(vMinion, SpellSlot.Q) * 0.85;
 
                 if (Config.Item("UseQFarm").GetValue<bool>() && Q.IsReady() && Qdamage >= Q.GetHealthPrediction(vMinion))
                 {
