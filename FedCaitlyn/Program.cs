@@ -16,8 +16,9 @@ namespace FedCaitlyn
     internal class Program
     {
         public const string ChampionName = "Caitlyn";
-        public static Orbwalking.Orbwalker Orbwalker;        
+        public static Orbwalking.Orbwalker Orbwalker;
 
+        public static List<Spell> SpellList = new List<Spell>();
         public static Spell Q, W, E, R;
         public static Vector2 PingLocation;
         public static int LastPingT = 0;
@@ -47,7 +48,9 @@ namespace FedCaitlyn
 
             Q.SetSkillshot(0.5f, 90f, 2200f, false, SkillshotType.SkillshotLine);
             W.SetSkillshot(0.25f, 80f, 2000f, false, SkillshotType.SkillshotCircle);
-            E.SetSkillshot(0.25f, 80f, 1600f, true, SkillshotType.SkillshotLine);            
+            E.SetSkillshot(0.25f, 80f, 1600f, true, SkillshotType.SkillshotLine);
+
+            SpellList.AddRange(new[] { Q, W, E, R });
 
             Config = new Menu("Fed" + ChampionName, ChampionName, true);
 
@@ -84,10 +87,10 @@ namespace FedCaitlyn
 
             Config.AddSubMenu(new Menu("Drawing", "Drawing"));
             Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_Disabled", "Disable All").SetValue(false));
-            Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_Q", "Draw Q").SetValue(true));
-            Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_W", "Draw W").SetValue(true));
-            Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_E", "Draw E").SetValue(true));
-            Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_R", "Draw R").SetValue(true));
+            Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_Q", "Draw Q").SetValue(new Circle(true, Color.FromArgb(150, Color.DodgerBlue))));
+            Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_W", "Draw W").SetValue(new Circle(true, Color.FromArgb(150, Color.DodgerBlue))));
+            Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_E", "Draw E").SetValue(new Circle(true, Color.FromArgb(150, Color.DodgerBlue))));
+            Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_R", "Draw R").SetValue(new Circle(true, Color.FromArgb(150, Color.DodgerBlue))));
             Config.SubMenu("Drawing").AddItem(new MenuItem("DrawRRangeM", "Draw R Range (Minimap)").SetValue(new Circle(true, Color.FromArgb(150, Color.DodgerBlue))));
             Config.AddToMainMenu();
 
@@ -297,21 +300,12 @@ namespace FedCaitlyn
             if (Config.Item("Draw_Disabled").GetValue<bool>())
                 return;
 
-            if (Config.Item("Draw_Q").GetValue<bool>())
-                if (Q.Level > 0)
-                    Utility.DrawCircle(ObjectManager.Player.Position, Q.Range, Q.IsReady() ? Color.Green : Color.Red);
-
-            if (Config.Item("Draw_W").GetValue<bool>())
-                if (W.Level > 0)
-                    Utility.DrawCircle(ObjectManager.Player.Position, W.Range, W.IsReady() ? Color.Green : Color.Red);
-
-            if (Config.Item("Draw_E").GetValue<bool>())
-                if (E.Level > 0)
-                    Utility.DrawCircle(ObjectManager.Player.Position, E.Range, E.IsReady() ? Color.Green : Color.Red);
-
-            if (Config.Item("Draw_R").GetValue<bool>())
-                if (R.Level > 0)
-                    Utility.DrawCircle(ObjectManager.Player.Position, GetRRange(), R.IsReady() ? Color.Green : Color.Red);            
+            foreach (var spell in SpellList)
+            {
+                var menuItem = Config.Item("Draw_" + spell.Slot).GetValue<Circle>();
+                if (menuItem.Active && (spell.Slot != SpellSlot.R || R.Level > 0))
+                    Utility.DrawCircle(ObjectManager.Player.Position, spell.Range, spell.IsReady() ? menuItem.Color : Color.Red);
+            }          
 
         }
 
