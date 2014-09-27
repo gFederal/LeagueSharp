@@ -16,12 +16,12 @@ namespace FedCaitlyn
     internal class Program
     {
         public const string ChampionName = "Caitlyn";
-        public static Orbwalking.Orbwalker Orbwalker;
-        public static Helper Helper;
+        public static Orbwalking.Orbwalker Orbwalker;        
 
         public static Spell Q, W, E, R;
         public static Vector2 PingLocation;
         public static int LastPingT = 0;
+        public static int EQComboT = 0;
 
         public static Menu Config;
         private static Obj_AI_Hero Player;
@@ -66,6 +66,7 @@ namespace FedCaitlyn
 
             Config.AddSubMenu(new Menu("Trap", "Trap"));
             Config.SubMenu("Trap").AddItem(new MenuItem("autoccW", "AutoTrap on CC").SetValue(true));
+            Config.SubMenu("Trap").AddItem(new MenuItem("autotpW", "AutoTrap on TP").SetValue(true));
             Config.SubMenu("Trap").AddItem(new MenuItem("AGCtrap", "AntiGapClose with W").SetValue(true));
             Config.SubMenu("Trap").AddItem(new MenuItem("casttrap", "Trap on Closest Enemy - ToDo").SetValue(new KeyBind("G".ToCharArray()[0], KeyBindType.Press)));
 
@@ -94,6 +95,8 @@ namespace FedCaitlyn
             Drawing.OnDraw += Drawing_OnDraw;
             Drawing.OnEndScene += Drawing_OnEndScene;
             AntiGapcloser.OnEnemyGapcloser += AntiGapcloser_OnEnemyGapcloser;
+            Obj_AI_Base.OnProcessSpellCast += Obj_AI_Hero_OnProcessSpellCast;
+            GameObject.OnCreate += Trap_OnCreate;
 
             Game.PrintChat("<font color=\"#00BFFF\">Fed" + ChampionName + " -</font> <font color=\"#FFFFFF\">Loaded!</font>");
 
@@ -111,12 +114,7 @@ namespace FedCaitlyn
             if (Config.Item("autoccW").GetValue<bool>() || Config.Item("autoccQ").GetValue<bool>())
             {
                 AutoCC();
-            }
-
-            if (Config.Item("autotpW").GetValue<bool>())
-            {
-                TrapTP();
-            }
+            }            
 
             if (Config.Item("PeelE").GetValue<bool>())
             {
@@ -170,43 +168,22 @@ namespace FedCaitlyn
                 var pos = ObjectManager.Player.ServerPosition.To2D().Extend(Game.CursorPos.To2D(), -300).To3D();
                 E.Cast(pos, true);
             }
-        }
-
-        // credits: madk
-        private static void TrapTP()
-        {
-            if (ObjectManager.Player.Spellbook.CanUseSpell(SpellSlot.W) != SpellState.Ready)
-                return;
-
-            foreach (var Object in ObjectManager.Get<Obj_AI_Base>().Where(Obj => Obj.Distance(ObjectManager.Player) < 800f && Obj.Team != ObjectManager.Player.Team && Obj.HasBuff("teleport_target", true)))
-                ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Object.Position);
-        }
+        }   
 
         private static void ComboEQ()
         {
-            var vTarget = SimpleTs.GetTarget(E.Range - 50, SimpleTs.DamageType.Physical);
+            var vTarget = SimpleTs.GetTarget(E.Range - 30, SimpleTs.DamageType.Physical);
 
-            if (vTarget.IsValidTarget(E.Range))
+            if (vTarget.IsValidTarget(E.Range) && E.IsReady() && Q.IsReady())
             {
-                if (E.IsReady() && Q.IsReady())
+                var prediction = E.GetPrediction(vTarget);
+                if (prediction.Hitchance >= HitChance.High)
                 {
-                    E.Cast(vTarget);
+                    E.Cast(vTarget, true);
+                    EQComboT = Environment.TickCount;
                 }
-                if (!E.IsReady() && Q.IsReady())
-                {
-                    CastQComboEQ();
-                }                              
             }
-        }
-
-        private static void CastQComboEQ()
-        {
-            var qTarget = SimpleTs.GetTarget(E.Range - 50, SimpleTs.DamageType.Physical);
-            Vector3 predictedPos = Prediction.GetPrediction(qTarget, Q.Delay).UnitPosition;
-            Q.Speed = GetDynamicQSpeed(ObjectManager.Player.Distance(predictedPos)); 
-           
-            Q.CastIfHitchanceEquals(qTarget, HitChance.High, true);
-        }
+        }        
 
         private static float GetDynamicQSpeed(float distance)
         {
@@ -219,7 +196,7 @@ namespace FedCaitlyn
             var qTarget = SimpleTs.GetTarget(Q.Range - 50, SimpleTs.DamageType.Physical);
             var eTarget = SimpleTs.GetTarget(E.Range - 50, SimpleTs.DamageType.Physical);
 
-            if (Config.Item("KillQ").GetValue<bool>() && Config.Item("KillEQ").GetValue<bool>() && Q.IsReady() && E.IsReady() && eTarget.Health < (DamageLib.getDmg(eTarget, DamageLib.SpellType.E) + DamageLib.getDmg(eTarget, DamageLib.SpellType.Q)) * 0.9)
+            if (Config.Item("KillQ").GetValue<bool>() && Config.Item("KillEQ").GetValue<bool>() && Q.IsReady() && E.IsReady() && eTarget.Health < (ObjectManager.Player.GetSpellDamage(eTarget, SpellSlot.E) + ObjectManager.Player.GetSpellDamage(eTarget, SpellSlot.Q)) * 0.9)
             {
                 PredictionOutput ePred = E.GetPrediction(eTarget);
                 if (ePred.Hitchance >= HitChance.High)
@@ -232,7 +209,7 @@ namespace FedCaitlyn
             }
             else
             {
-                if (Config.Item("KillQ").GetValue<bool>() && Q.IsReady() && qTarget.Health < (DamageLib.getDmg(qTarget, DamageLib.SpellType.Q) * 0.9))
+                if (Config.Item("KillQ").GetValue<bool>() && Q.IsReady() && qTarget.Health < (ObjectManager.Player.GetSpellDamage(qTarget, SpellSlot.Q) * 0.9))
                 {
                     Vector3 predictedPos = Prediction.GetPrediction(qTarget, Q.Delay).UnitPosition;
                     Q.Speed = GetDynamicQSpeed(ObjectManager.Player.Distance(predictedPos));
@@ -240,7 +217,7 @@ namespace FedCaitlyn
                 }
                 else
                 {
-                    if (Config.Item("KillEQ").GetValue<bool>() && !Q.IsReady() && E.IsReady() && eTarget.Health < (DamageLib.getDmg(qTarget, DamageLib.SpellType.Q) * 0.9))
+                    if (Config.Item("KillEQ").GetValue<bool>() && !Q.IsReady() && E.IsReady() && eTarget.Health < (ObjectManager.Player.GetSpellDamage(qTarget, SpellSlot.Q) * 0.9))
                     {
                         Vector3 predictedPos = Prediction.GetPrediction(qTarget, Q.Delay).UnitPosition;
                         Q.Speed = GetDynamicQSpeed(ObjectManager.Player.Distance(predictedPos));
@@ -254,7 +231,7 @@ namespace FedCaitlyn
         {
             var rTarget = SimpleTs.GetTarget(GetRRange() - 100, SimpleTs.DamageType.Physical);
 
-            if (R.IsReady() && rTarget != null && rTarget.Health < DamageLib.getDmg(rTarget, DamageLib.SpellType.R) * 0.9)
+            if (R.IsReady() && rTarget != null && rTarget.Health < ObjectManager.Player.GetSpellDamage(rTarget, SpellSlot.R) * 0.9)
             {
                 if (ObjectManager.Player.Distance(rTarget) > Q.Range)
                     R.CastOnUnit(rTarget);
@@ -334,15 +311,7 @@ namespace FedCaitlyn
 
             if (Config.Item("Draw_R").GetValue<bool>())
                 if (R.Level > 0)
-                    Utility.DrawCircle(ObjectManager.Player.Position, GetRRange(), R.IsReady() ? Color.Green : Color.Red);
-
-            var victims = "";
-
-            foreach (var target in Program.Helper.EnemyInfo.Where(x =>
-             x.Player.IsVisible && x.Player.IsValidTarget(GetRRange()) && !x.Player.IsDead && DamageLib.getDmg(x.Player, DamageLib.SpellType.R) * 0.9 >= x.Player.Health))
-            {
-                victims += target.Player.ChampionName + " ";                
-            }
+                    Utility.DrawCircle(ObjectManager.Player.Position, GetRRange(), R.IsReady() ? Color.Green : Color.Red);            
 
         }
 
@@ -367,6 +336,30 @@ namespace FedCaitlyn
         {
             if (E.IsReady() && gapcloser.Sender.IsValidTarget(E.Range))
                 E.Cast(gapcloser.Sender);
-        }       
+        }
+
+        private static void Trap_OnCreate(LeagueSharp.GameObject Trap, EventArgs args)
+        {
+            if (ObjectManager.Player.Spellbook.CanUseSpell(SpellSlot.W) != SpellState.Ready || !Config.Item("autotpW").GetValue<bool>())
+                return;            
+
+            if (Trap.IsEnemy)
+            {
+                if (Trap.Name == "GateMarker_red.troy" || Trap.Name == "GateMarker_green.troy" || Trap.Name == "Pantheon_Base_R_indicator_red.troy" || Trap.Name.Contains("teleport_target") ||
+                    Trap.Name == "LeBlanc_Displacement_Yellow_mis.troy" || Trap.Name == "Leblanc_displacement_blink_indicator_ult.troy" || Trap.Name.Contains("Crowstorm"))
+                {
+                    ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position);
+                }                
+            }
+        }
+
+        private static void Obj_AI_Hero_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
+        {
+            if (sender.IsMe && Environment.TickCount - EQComboT < 500 &&
+                (args.SData.Name.Contains("CaitlynEntrapment")))
+            {
+                Q.Cast(args.End, true);
+            }
+        }
     }
 }
