@@ -340,7 +340,7 @@ namespace FedCaitlyn
             if (Trap.IsEnemy)
             {
                 if (Trap.Name == "GateMarker_red.troy" || Trap.Name == "GateMarker_green.troy" || Trap.Name == "Pantheon_Base_R_indicator_red.troy" || Trap.Name.Contains("teleport_target") ||
-                    Trap.Name == "LeBlanc_Displacement_Yellow_mis.troy" || Trap.Name == "Leblanc_displacement_blink_indicator_ult.troy" || Trap.Name.Contains("Crowstorm"))
+                    Trap.Name == "LeBlanc_Displacement_Yellow_mis.troy" || Trap.Name == "Leblanc_displacement_blink_indicator_ult.troy" || Trap.Name.Contains("Crowstorm") || Trap.Name == "LifeAura.troy")
                 {
                     ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position);
                 }                
