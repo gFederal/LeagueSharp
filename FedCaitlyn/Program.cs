@@ -64,6 +64,7 @@ namespace FedCaitlyn
             Config.AddSubMenu(new Menu("Piltover", "Piltover"));
             Config.SubMenu("Piltover").AddItem(new MenuItem("UseQ", "Use Q Mode: - ToDo").SetValue(new StringList(new[] { "Combo", "Harass", "Both", "No" }, 1)));
             Config.SubMenu("Piltover").AddItem(new MenuItem("KillQ", "Auto Q Kill").SetValue(true));
+            Config.SubMenu("Piltover").AddItem(new MenuItem("KillQMin", "Only out of range AA").SetValue(true));
             Config.SubMenu("Piltover").AddItem(new MenuItem("autoccQ", "AutoPeacemaker on CC").SetValue(true));
             Config.SubMenu("Piltover").AddItem(new MenuItem("minMinions", "Min. Minions Q LaneClear - ToDo").SetValue(new Slider(6, 0, 10)));
 
@@ -198,6 +199,9 @@ namespace FedCaitlyn
         {
             var qTarget = SimpleTs.GetTarget(Q.Range - 50, SimpleTs.DamageType.Physical);
             var eTarget = SimpleTs.GetTarget(E.Range - 50, SimpleTs.DamageType.Physical);
+            var QonlyAA = Config.Item("KillQMin").GetValue<bool>();
+
+            if (QonlyAA && Orbwalking.InAutoAttackRange(qTarget)) return;
 
             if (Config.Item("KillQ").GetValue<bool>() && Config.Item("KillEQ").GetValue<bool>() && Q.IsReady() && E.IsReady() && eTarget.Health < (ObjectManager.Player.GetSpellDamage(eTarget, SpellSlot.E) + ObjectManager.Player.GetSpellDamage(eTarget, SpellSlot.Q)) * 0.9)
             {
