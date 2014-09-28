@@ -30,6 +30,8 @@ namespace FedCaitlyn
         const float _spellQSpeed = 2500;
         const float _spellQSpeedMin = 400;
 
+        public static Geometrys.Rectangle rect;
+
         private static void Main(string[] args)
         {
             CustomEvents.Game.OnGameLoad += Game_OnGameLoad;
@@ -62,10 +64,12 @@ namespace FedCaitlyn
             Orbwalker = new Orbwalking.Orbwalker(Config.SubMenu("Orbwalking"));
 
             Config.AddSubMenu(new Menu("Piltover", "Piltover"));
-            Config.SubMenu("Piltover").AddItem(new MenuItem("UseQ", "Use Q Mode: - ToDo").SetValue(new StringList(new[] { "Combo", "Harass", "Both", "No" }, 1)));
-            Config.SubMenu("Piltover").AddItem(new MenuItem("KillQ", "Auto Q Kill").SetValue(true));
-            Config.SubMenu("Piltover").AddItem(new MenuItem("KillQMin", "Only out of range AA").SetValue(true));
+            Config.SubMenu("Piltover").AddItem(new MenuItem("QMin", "Q Only out of range AA").SetValue(true));
+            Config.SubMenu("Piltover").AddItem(new MenuItem("UseQ", "Use Q Mode: ").SetValue(new StringList(new[] { "Combo", "Harass", "Both", "No" }, 1)));
+            Config.SubMenu("Piltover").AddItem(new MenuItem("KillQ", "Auto Q Kill").SetValue(true));            
             Config.SubMenu("Piltover").AddItem(new MenuItem("autoccQ", "AutoPeacemaker on CC").SetValue(true));
+            Config.SubMenu("Piltover").AddItem(new MenuItem("autoQMT", "Auto Q Multi Target").SetValue(true));
+            Config.SubMenu("Piltover").AddItem(new MenuItem("minAutoQMT", "Min. Targest").SetValue(new Slider(3, 2, 5)));
             Config.SubMenu("Piltover").AddItem(new MenuItem("minMinions", "Min. Minions Q LaneClear - ToDo").SetValue(new Slider(6, 0, 10)));
 
             Config.AddSubMenu(new Menu("Trap", "Trap"));
@@ -110,6 +114,20 @@ namespace FedCaitlyn
         {
             if (ObjectManager.Player.IsDead) return;
 
+            var Qmode = Config.Item("UseQ").GetValue<StringList>().SelectedIndex;
+
+            switch (Program.Orbwalker.ActiveMode)
+            {
+                case Orbwalking.OrbwalkingMode.Combo:
+                    if (Qmode == 0 || Qmode == 2)
+                        Cast_BasicLineSkillshot_Enemy(Q);
+                    break;
+                case Orbwalking.OrbwalkingMode.Mixed:
+                    if (Qmode == 1 || Qmode == 2)
+                        Cast_BasicLineSkillshot_Enemy(Q);
+                    break;
+            }
+            
             if (Config.Item("rKill").GetValue<KeyBind>().Active || Config.Item("AutoRKill").GetValue<bool>())
             {
                 AutoRKill();
@@ -138,6 +156,11 @@ namespace FedCaitlyn
             if (Config.Item("KillQ").GetValue<bool>() || Config.Item("KillEQ").GetValue<bool>())
             {
                 Killer();
+            }
+
+            if (Config.Item("autoQMT").GetValue<bool>())
+            {
+                AutoQMT();
             }
 
             if (R.IsReady() && Config.Item("pingkillable").GetValue<bool>())
@@ -199,7 +222,7 @@ namespace FedCaitlyn
         {
             var qTarget = SimpleTs.GetTarget(Q.Range - 50, SimpleTs.DamageType.Physical);
             var eTarget = SimpleTs.GetTarget(E.Range - 50, SimpleTs.DamageType.Physical);
-            var QonlyAA = Config.Item("KillQMin").GetValue<bool>();
+            var QonlyAA = Config.Item("QMin").GetValue<bool>();
 
             if (QonlyAA && Orbwalking.InAutoAttackRange(qTarget)) return;
 
@@ -343,7 +366,7 @@ namespace FedCaitlyn
 
             if (Trap.IsEnemy)
             {
-                if (Trap.Name == "GateMarker_red.troy" || Trap.Name == "GateMarker_green.troy" || Trap.Name == "Pantheon_Base_R_indicator_red.troy" || Trap.Name.Contains("teleport_target") ||
+                if (Trap.Name.Contains("GateMarker_red") || Trap.Name == "Pantheon_Base_R_indicator_red.troy" || Trap.Name.Contains("teleport_target") ||
                     Trap.Name == "LeBlanc_Displacement_Yellow_mis.troy" || Trap.Name == "Leblanc_displacement_blink_indicator_ult.troy" || Trap.Name.Contains("Crowstorm") ||
                     Trap.Name == "LifeAura.troy" || Trap.Name == "ZacPassiveExplosion.troy" || Trap.Name == "RebirthBlob" ||  Trap.Name.Contains("Passive_Death_Activate"))
                 {
@@ -360,5 +383,78 @@ namespace FedCaitlyn
                 Q.Cast(args.End, true);
             }
         }
+
+        private static Obj_AI_Hero GetEnemyHitByQ(Spell Q, int numHit)
+        {
+            int totalHit = 0;
+            Obj_AI_Hero target = null;
+
+            foreach (Obj_AI_Hero current in ObjectManager.Get<Obj_AI_Hero>())
+            {
+
+                var prediction = Q.GetPrediction(current, true);
+
+                if (Vector3.Distance(ObjectManager.Player.Position, prediction.CastPosition) <= Q.Range - 50)
+                {
+
+                    Vector2 extended = current.Position.To2D().Extend(ObjectManager.Player.Position.To2D(), -Q.Range + Vector2.Distance(ObjectManager.Player.Position.To2D(), current.Position.To2D()));
+                    rect = new Geometrys.Rectangle(ObjectManager.Player.Position.To2D(), extended, Q.Width);
+
+                    if (!current.IsMe && current.IsEnemy)
+                    {                        
+                        totalHit = 1;
+                        foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>())
+                        {
+                            if (enemy.IsEnemy && current.ChampionName != enemy.ChampionName && !enemy.IsDead && !rect.ToPolygon().IsOutside(enemy.Position.To2D()))
+                            {
+                                totalHit += 1;
+                            }
+                        }
+                    }
+
+                    if (totalHit >= numHit)
+                    {
+                        target = current;
+                        break;
+                    }
+                }
+
+            }
+            
+            return target;
+        }
+
+        private static void AutoQMT()
+        {
+            var minHit = GetEnemyHitByQ(Q, Config.Item("minAutoQMT").GetValue<Slider>().Value);
+
+            if (minHit != null)
+            {
+                var QonlyAA = Config.Item("QMin").GetValue<bool>();
+                if (QonlyAA && Orbwalking.InAutoAttackRange(minHit)) return;
+
+                Q.Cast(minHit, true);
+            }
+        }
+
+        private static Obj_AI_Hero Cast_BasicLineSkillshot_Enemy(Spell spell, SimpleTs.DamageType damageType = SimpleTs.DamageType.Physical)
+        {
+            var QonlyAA = Config.Item("QMin").GetValue<bool>();
+            var target = SimpleTs.GetTarget(spell.Range, damageType);
+
+            if (!spell.IsReady())
+                return null;
+            
+            if (target == null)
+                return null;
+
+            if (QonlyAA && Orbwalking.InAutoAttackRange(target)) return null;
+
+            if (!target.IsValidTarget(spell.Range) || spell.GetPrediction(target).Hitchance < HitChance.High)
+                return null;
+
+            spell.Cast(target, true);
+            return target;
+        }        
     }
 }

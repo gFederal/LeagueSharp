@@ -37,6 +37,9 @@
     <ApplicationIcon>caitlyn.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="clipper_library">
+      <HintPath>C:\Users\Fernando\Desktop\AssemblyInstaller\LSharp\System\clipper_library.dll</HintPath>
+    </Reference>
     <Reference Include="LeagueSharp">
       <HintPath>C:\Users\Fernando\Desktop\AssemblyInstaller\LSharp\System\LeagueSharp.dll</HintPath>
     </Reference>
@@ -58,6 +61,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Geometrys.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
