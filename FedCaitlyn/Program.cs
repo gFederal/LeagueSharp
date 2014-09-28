@@ -70,7 +70,8 @@ namespace FedCaitlyn
             Config.SubMenu("Piltover").AddItem(new MenuItem("autoccQ", "AutoPeacemaker on CC").SetValue(true));
             Config.SubMenu("Piltover").AddItem(new MenuItem("autoQMT", "Auto Q Multi Target").SetValue(true));
             Config.SubMenu("Piltover").AddItem(new MenuItem("minAutoQMT", "Min. Targest").SetValue(new Slider(3, 2, 5)));
-            Config.SubMenu("Piltover").AddItem(new MenuItem("minMinions", "Min. Minions Q LaneClear - ToDo").SetValue(new Slider(6, 0, 10)));
+            Config.SubMenu("Piltover").AddItem(new MenuItem("UseQFarm", "Use Q LaneClear").SetValue(true));
+            Config.SubMenu("Piltover").AddItem(new MenuItem("minMana", "Harass/Farm Mana %").SetValue(new Slider(40, 100, 0)));
 
             Config.AddSubMenu(new Menu("Trap", "Trap"));
             Config.SubMenu("Trap").AddItem(new MenuItem("autoccW", "AutoTrap on CC").SetValue(true));
@@ -123,8 +124,12 @@ namespace FedCaitlyn
                         Cast_BasicLineSkillshot_Enemy(Q);
                     break;
                 case Orbwalking.OrbwalkingMode.Mixed:
-                    if (Qmode == 1 || Qmode == 2)
+                    if ((Qmode == 1 || Qmode == 2) && GetManaPercent() >= Config.Item("minMana").GetValue<Slider>().Value)
                         Cast_BasicLineSkillshot_Enemy(Q);
+                    break;
+                case Orbwalking.OrbwalkingMode.LaneClear:
+                    if (Config.Item("UseQFarm").GetValue<bool>() && GetManaPercent() >= Config.Item("minMana").GetValue<Slider>().Value)
+                        Cast_BasicLineSkillshot_AOE_Farm(Q);
                     break;
             }
             
@@ -455,6 +460,24 @@ namespace FedCaitlyn
 
             spell.Cast(target, true);
             return target;
-        }        
+        }
+
+        private static void Cast_BasicLineSkillshot_AOE_Farm(Spell spell)
+        {
+            if (!spell.IsReady()) return;
+
+            var minions = MinionManager.GetMinions(ObjectManager.Player.Position, spell.Range, MinionTypes.All, MinionTeam.NotAlly);
+
+            if (minions.Count == 0) return;
+
+            var castPostion = MinionManager.GetBestLineFarmLocation(minions.Select(minion => minion.ServerPosition.To2D()).ToList(), spell.Width - 10, spell.Range);
+
+            spell.Cast(castPostion.Position, true);
+        }
+
+        private static float GetManaPercent()
+        {
+            return (ObjectManager.Player.Mana / ObjectManager.Player.MaxMana) * 100f;
+        }
     }
 }
