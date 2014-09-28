@@ -112,7 +112,7 @@ namespace FedCaitlyn
         }
 
         private static void Game_OnGameUpdate(EventArgs args)
-        {
+        { 
             if (ObjectManager.Player.IsDead) return;
 
             var Qmode = Config.Item("UseQ").GetValue<StringList>().SelectedIndex;
@@ -277,13 +277,13 @@ namespace FedCaitlyn
         {
             List<Obj_AI_Hero> enemBuffed = getEnemiesBuffs();
             foreach (Obj_AI_Hero enem in enemBuffed)
-            {
-                if (W.IsReady())
+            {                 
+                if (W.IsReady() && Config.Item("autoccW").GetValue<bool>())
                 {
                     W.CastOnUnit(enem);
                 }
 
-                if (Q.IsReady())
+                if (Q.IsReady() && Config.Item("autoccQ").GetValue<bool>())
                 {
                     if (Q.GetPrediction(enem).Hitchance >= HitChance.High)
                         Q.Cast(enem, true);
@@ -305,7 +305,8 @@ namespace FedCaitlyn
                         buff.Name == "namiqdebuff" || buff.Name == "nautilusanchordragroot" || buff.Name == "RunePrison" || buff.Name == "SonaR" || buff.Name == "sejuaniglacialprison" || buff.Name == "swainshadowgrasproot" ||
                         buff.Name == "threshqfakeknockup" || buff.Name == "VeigarStun" || buff.Name == "velkozestun" || buff.Name == "virdunkstun" || buff.Name == "viktorgravitonfieldstun" || buff.Name == "yasuoq3mis" ||
                         buff.Name == "zyragraspingrootshold" || buff.Name == "zyrabramblezoneknockup" || buff.Name == "katarinarsound" || buff.Name == "lissandrarself" || buff.Name == "AlZaharNetherGrasp" || buff.Name == "Meditate" ||
-                        buff.Name == "missfortunebulletsound" || buff.Name == "AbsoluteZero" || buff.Name == "pantheonesound" || buff.Name == "VelkozR" || buff.Name == "infiniteduresssound" || buff.Name == "chronorevive" || buff.Type == BuffType.Suppression)
+                        buff.Name == "missfortunebulletsound" || buff.Name == "AbsoluteZero" || buff.Name == "pantheonesound" || buff.Name == "VelkozR" || buff.Name == "infiniteduresssound" || buff.Name == "chronorevive" || 
+                        buff.Type == BuffType.Suppression)
                     {
                         enemBuffs.Add(enem);
                         break;
@@ -367,18 +368,19 @@ namespace FedCaitlyn
         private static void Trap_OnCreate(LeagueSharp.GameObject Trap, EventArgs args)
         {
             if (ObjectManager.Player.Spellbook.CanUseSpell(SpellSlot.W) != SpellState.Ready || !Config.Item("autotpW").GetValue<bool>())
-                return;            
+                return;
 
             if (Trap.IsEnemy)
             {
-                if (Trap.Name.Contains("GateMarker_red") || Trap.Name == "Pantheon_Base_R_indicator_red.troy" || Trap.Name.Contains("teleport_target") ||
+                if (Trap.Name.Contains("GateMarker_red") || Trap.Name == "Pantheon_Base_R_indicator_red.troy" || Trap.Name.Contains("teleport_target_red") ||
                     Trap.Name == "LeBlanc_Displacement_Yellow_mis.troy" || Trap.Name == "Leblanc_displacement_blink_indicator_ult.troy" || Trap.Name.Contains("Crowstorm") ||
                     Trap.Name == "LifeAura.troy" || Trap.Name == "ZacPassiveExplosion.troy" || Trap.Name == "RebirthBlob" ||  Trap.Name.Contains("Passive_Death_Activate"))
                 {
-                    ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position);
+                    var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy && enemy.Distance(Trap.Position) < W.Range);
+                    ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, target);
                 }                
             }
-        }
+        }       
 
         private static void Obj_AI_Hero_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
         {
