@@ -76,6 +76,7 @@ namespace FedCaitlyn
             Config.AddSubMenu(new Menu("Trap", "Trap"));
             Config.SubMenu("Trap").AddItem(new MenuItem("autoccW", "AutoTrap on CC").SetValue(true));
             Config.SubMenu("Trap").AddItem(new MenuItem("autotpW", "AutoTrap on TP").SetValue(true));
+            Config.SubMenu("Trap").AddItem(new MenuItem("autoRevW", "AutoTrap on Revive").SetValue(true));
             Config.SubMenu("Trap").AddItem(new MenuItem("AGCtrap", "AntiGapClose with W").SetValue(true));
             Config.SubMenu("Trap").AddItem(new MenuItem("casttrap", "Trap on Closest Enemy - ToDo").SetValue(new KeyBind("G".ToCharArray()[0], KeyBindType.Press)));
 
@@ -367,20 +368,41 @@ namespace FedCaitlyn
 
         private static void Trap_OnCreate(LeagueSharp.GameObject Trap, EventArgs args)
         {
-            if (ObjectManager.Player.Spellbook.CanUseSpell(SpellSlot.W) != SpellState.Ready || !Config.Item("autotpW").GetValue<bool>())
-                return;
+            if (ObjectManager.Player.Spellbook.CanUseSpell(SpellSlot.W) != SpellState.Ready || 
+                (!Config.Item("autotpW").GetValue<bool>() && !Config.Item("autoRevW").GetValue<bool>()))
+                return;   
 
-            if (Trap.IsEnemy)
-            {
-                if (Trap.Name.Contains("GateMarker_red") || Trap.Name == "Pantheon_Base_R_indicator_red.troy" || Trap.Name.Contains("teleport_target_red") ||
-                    Trap.Name == "LeBlanc_Displacement_Yellow_mis.troy" || Trap.Name == "Leblanc_displacement_blink_indicator_ult.troy" || Trap.Name.Contains("Crowstorm") ||
-                    Trap.Name == "LifeAura.troy" || Trap.Name == "ZacPassiveExplosion.troy" || Trap.Name == "RebirthBlob" ||  Trap.Name.Contains("Passive_Death_Activate"))
+                // Teleport
+                if (Config.Item("autotpW").GetValue<bool>())
                 {
-                    var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy && enemy.Distance(Trap.Position) < W.Range);
-                    ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, target);
-                }                
-            }
-        }       
+                    if (Trap.Name.Contains("GateMarker_red") || Trap.Name == "Pantheon_Base_R_indicator_red.troy" || Trap.Name.Contains("teleport_target_red") ||
+                        Trap.Name == "LeBlanc_Displacement_Yellow_mis.troy" || Trap.Name == "Leblanc_displacement_blink_indicator_ult.troy" || Trap.Name.Contains("Crowstorm"))
+                    {
+                        if (Trap.IsAlly) { Game.PrintChat("Morri, mais sou um Aliado");}
+
+                        else {
+                                      
+                        //var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy  && enemy.Distance(Trap.Position) < W.Range);
+                        ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position); 
+                        }
+                    }
+                }
+              
+                // Revive
+                if (Config.Item("autoRevW").GetValue<bool>())
+                {
+                    if (Trap.Name == "LifeAura.troy" || Trap.Name == "ZacPassiveExplosion.troy" || Trap.Name == "RebirthBlob" || Trap.Name.Contains("Passive_Death_Activate"))
+                    {
+                        if (Trap.IsAlly) { Game.PrintChat("Morri, mais sou um Aliado"); }
+
+                        else
+                        {
+                        //var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy && enemy.Distance(Trap.Position) < W.Range);
+                        ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position); 
+                        }
+                    }
+                }
+            }         
 
         private static void Obj_AI_Hero_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
         {
