@@ -378,12 +378,12 @@ namespace FedCaitlyn
                     if (Trap.Name.Contains("GateMarker_red") || Trap.Name == "Pantheon_Base_R_indicator_red.troy" || Trap.Name.Contains("teleport_target_red") ||
                         Trap.Name == "LeBlanc_Displacement_Yellow_mis.troy" || Trap.Name == "Leblanc_displacement_blink_indicator_ult.troy" || Trap.Name.Contains("Crowstorm"))
                     {
-                        if (Trap.IsAlly) { Game.PrintChat("Morri, mais sou um Aliado");}
+                        if (Trap.IsEnemy)
+                        {
 
-                        else {
-                                      
-                        //var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy  && enemy.Distance(Trap.Position) < W.Range);
-                        ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position); 
+                            var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy && enemy.Distance(Trap.Position) < W.Range);
+                            ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position);
+
                         }
                     }
                 }
@@ -393,12 +393,12 @@ namespace FedCaitlyn
                 {
                     if (Trap.Name == "LifeAura.troy" || Trap.Name == "ZacPassiveExplosion.troy" || Trap.Name == "RebirthBlob" || Trap.Name.Contains("Passive_Death_Activate"))
                     {
-                        if (Trap.IsAlly) { Game.PrintChat("Morri, mais sou um Aliado"); }
-
-                        else
+                        if (Trap.IsEnemy)
                         {
-                        //var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy && enemy.Distance(Trap.Position) < W.Range);
-                        ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position); 
+
+                            var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy && enemy.Distance(Trap.Position) < W.Range);
+                            ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position);
+
                         }
                     }
                 }
