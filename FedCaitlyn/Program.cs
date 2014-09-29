@@ -382,7 +382,7 @@ namespace FedCaitlyn
                         {
 
                             var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy && enemy.Distance(Trap.Position) < W.Range);
-                            ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position);
+                            ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, target);
 
                         }
                     }
@@ -397,7 +397,7 @@ namespace FedCaitlyn
                         {
 
                             var target = ObjectManager.Get<Obj_AI_Hero>().FirstOrDefault(enemy => enemy.IsEnemy && enemy.Distance(Trap.Position) < W.Range);
-                            ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, Trap.Position);
+                            ObjectManager.Player.Spellbook.CastSpell(SpellSlot.W, target);
 
                         }
                     }
