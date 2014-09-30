@@ -26,6 +26,8 @@ namespace FedNocturne
         private static SpellSlot SmiteSlot;
 
         public static Menu Config;
+        public static Menu TargetedItems;
+        public static Menu NoTargetedItems;
         private static Obj_AI_Hero Player;
         
         private static void Main(string[] args)
@@ -90,7 +92,27 @@ namespace FedNocturne
             Config.SubMenu("Misc").AddItem(new MenuItem("HPR", "% Low HP: ").SetValue<Slider>(new Slider(30, 100, 10)));
             Config.SubMenu("Misc").AddItem(new MenuItem("useR_Killableping", "Ping if is Low HP").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("AutoRStrong", "R Most AD/AP in Range").SetValue(new KeyBind("G".ToCharArray()[0], KeyBindType.Press)));
-            Config.SubMenu("Misc").AddItem(new MenuItem("MostR", "R Most: ").SetValue(new StringList(new[] { "AD", "AP", "Easy" }, 0)));
+            Config.SubMenu("Misc").AddItem(new MenuItem("MostR", "R Most: ").SetValue(new StringList(new[] { "AD", "AP", "Easy" }, 0)));            
+
+            Config.AddSubMenu(new Menu("Itens", "Itens"));
+            Menu menuUseItems = new Menu("Use Items", "menuUseItems");
+            Config.SubMenu("Itens").AddSubMenu(menuUseItems);
+
+            TargetedItems = new Menu("Targeted Items", "menuTargetItems");
+            menuUseItems.AddSubMenu(TargetedItems);
+            TargetedItems.AddItem(new MenuItem("item3153", "Blade of the Ruined King").SetValue(true));
+            TargetedItems.AddItem(new MenuItem("item3143", "Randuin's Omen").SetValue(true));
+            TargetedItems.AddItem(new MenuItem("item3144", "Bilgewater Cutlass").SetValue(true));
+            TargetedItems.AddItem(new MenuItem("item3146", "Hextech Gunblade").SetValue(true));
+            TargetedItems.AddItem(new MenuItem("item3184", "Entropy ").SetValue(true));
+
+            NoTargetedItems = new Menu("AOE Items", "menuNonTargetedItems");
+            menuUseItems.AddSubMenu(NoTargetedItems);
+            NoTargetedItems.AddItem(new MenuItem("item3180", "Odyn's Veil").SetValue(true));
+            NoTargetedItems.AddItem(new MenuItem("item3131", "Sword of the Divine").SetValue(true));
+            NoTargetedItems.AddItem(new MenuItem("item3074", "Ravenous Hydra").SetValue(true));
+            NoTargetedItems.AddItem(new MenuItem("item3077", "Tiamat ").SetValue(true));
+            NoTargetedItems.AddItem(new MenuItem("item3142", "Youmuu's Ghostblade").SetValue(true));
 
             Config.AddSubMenu(new Menu("Drawing", "Drawing"));
             Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_Disabled", "Disable All").SetValue(false));
@@ -98,6 +120,7 @@ namespace FedNocturne
             Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_E", "Draw E").SetValue(true));
             Config.SubMenu("Drawing").AddItem(new MenuItem("Draw_R", "Draw R").SetValue(true));
             Config.SubMenu("Drawing").AddItem(new MenuItem("DrawRRangeM", "Draw R Range (Minimap)").SetValue(new Circle(false, Color.FromArgb(150, Color.DodgerBlue))));
+
             Config.AddToMainMenu();
 
             Game.OnGameUpdate += Game_OnGameUpdate;
@@ -164,7 +187,41 @@ namespace FedNocturne
                     Ping(enemy.Position.To2D());
                 }
             }
-        } 
+        }
+
+        private static InventorySlot GetInventorySlot(int ID)
+        {
+            return ObjectManager.Player.InventoryItems.FirstOrDefault(item => (item.Id == (ItemId)ID && item.Stacks >= 1) || (item.Id == (ItemId)ID && item.Charges >= 1));
+        }
+
+        public static void UseItems(Obj_AI_Hero vTarget)
+        {
+            if (vTarget != null)
+            {
+                foreach (MenuItem menuItem in TargetedItems.Items)
+                {
+                    var useItem = TargetedItems.Item(menuItem.Name).GetValue<bool>();
+                    if (useItem)
+                    {
+                        var itemID = Convert.ToInt16(menuItem.Name.ToString().Substring(4, 4));
+                        if (Items.HasItem(itemID) && Items.CanUseItem(itemID) && GetInventorySlot(itemID) != null)
+                            Items.UseItem(itemID, vTarget);
+                    }
+                }
+
+                foreach (MenuItem menuItem in NoTargetedItems.Items)
+                {
+                    var useItem = NoTargetedItems.Item(menuItem.Name).GetValue<bool>();
+                    if (useItem)
+                    {
+                        var itemID = Convert.ToInt16(menuItem.Name.ToString().Substring(4, 4));
+                        if (Items.HasItem(itemID) && Items.CanUseItem(itemID) && GetInventorySlot(itemID) != null)
+                            Items.UseItem(itemID);
+                    }
+                }
+            }
+        }
+
         private static void AutoIgnite()
         {
             var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
@@ -271,9 +328,15 @@ namespace FedNocturne
                     R.Cast();
                     R.CastOnUnit(rTarget, true);
                 }
-            }
+            }            
 
             var qTarget = SimpleTs.GetTarget(Q.Range - 50, SimpleTs.DamageType.Physical);
+
+            if (qTarget != null && Config.Item("UseItensCombo").GetValue<bool>())
+            {
+                UseItems(qTarget);
+            }
+
             if (Q.IsReady() && Config.Item("UseQCombo").GetValue<bool>())
             {
                 if (Q.GetPrediction(qTarget).Hitchance >= HitChance.High)
