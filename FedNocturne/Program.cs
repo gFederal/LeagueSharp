@@ -63,6 +63,7 @@ namespace FedNocturne
             Config.SubMenu("TeamFight").AddItem(new MenuItem("UseWCombo", "Use W").SetValue(true));
             Config.SubMenu("TeamFight").AddItem(new MenuItem("UseECombo", "Use E").SetValue(true));
             Config.SubMenu("TeamFight").AddItem(new MenuItem("UseRCombo", "Use R").SetValue(true));
+            Config.SubMenu("TeamFight").AddItem(new MenuItem("UseRHP", "% HP to R Combo: ").SetValue<Slider>(new Slider(50, 100, 10)));
             Config.SubMenu("TeamFight").AddItem(new MenuItem("ComboActive", "Combo!").SetValue(new KeyBind(32, KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Harass", "Harass"));
@@ -88,7 +89,7 @@ namespace FedNocturne
             Config.SubMenu("Misc").AddItem(new MenuItem("AutoRHP", "Auto R LowHP").SetValue(new KeyBind("T".ToCharArray()[0], KeyBindType.Press)));
             Config.SubMenu("Misc").AddItem(new MenuItem("HPR", "% Low HP: ").SetValue<Slider>(new Slider(30, 100, 10)));
             Config.SubMenu("Misc").AddItem(new MenuItem("useR_Killableping", "Ping if is Low HP").SetValue(true));
-            Config.SubMenu("Misc").AddItem(new MenuItem("AutoRStrong", "Auto R Most AD/AP").SetValue(new KeyBind("G".ToCharArray()[0], KeyBindType.Press)));
+            Config.SubMenu("Misc").AddItem(new MenuItem("AutoRStrong", "R Most AD/AP in Range").SetValue(new KeyBind("G".ToCharArray()[0], KeyBindType.Press)));
             Config.SubMenu("Misc").AddItem(new MenuItem("MostR", "R Most: ").SetValue(new StringList(new[] { "AD", "AP", "Easy" }, 0)));
 
             Config.AddSubMenu(new Menu("Drawing", "Drawing"));
@@ -141,7 +142,7 @@ namespace FedNocturne
                 AutoRLowHP();
             }
 
-            if (Config.Item("AutoRStrong").GetValue<bool>())
+            if (Config.Item("AutoRStrong").GetValue<KeyBind>().Active)
             {
                 AutoRMode();
             }
@@ -244,6 +245,7 @@ namespace FedNocturne
 
             if (R.IsReady() && newtarget != null)
             {
+                R.Cast();
                 R.CastOnUnit(newtarget, true);
             }
         }
@@ -252,8 +254,9 @@ namespace FedNocturne
             var rTarget = SimpleTs.GetTarget(GetRRange(), SimpleTs.DamageType.Physical);
             if (R.IsReady() && rTarget != null)
             {
-                if (ObjectManager.Player.Distance(rTarget) > 1200 && EnemmylowHP(Config.Item("HPR").GetValue<Slider>().Value, GetRRange()))
+                if (ObjectManager.Player.Distance(rTarget) > 1100 && EnemmylowHP(Config.Item("HPR").GetValue<Slider>().Value, GetRRange()))
                 {
+                    R.Cast();
                     R.CastOnUnit(rTarget, true);
                 }
             }
@@ -263,8 +266,9 @@ namespace FedNocturne
             var rTarget = SimpleTs.GetTarget(GetRRange(), SimpleTs.DamageType.Physical);
             if (R.IsReady() && Config.Item("UseRCombo").GetValue<bool>())
             {
-                if (ObjectManager.Player.Distance(rTarget) > 1300 && EnemmylowHP(Config.Item("HPR").GetValue<Slider>().Value, GetRRange()))
+                if (ObjectManager.Player.Distance(rTarget) > 1100 && EnemmylowHP(Config.Item("UseRHP").GetValue<Slider>().Value, GetRRange()))
                 {
+                    R.Cast();
                     R.CastOnUnit(rTarget, true);
                 }
             }
