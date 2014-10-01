@@ -189,49 +189,47 @@ namespace FedJax
             {
                 Combo();
             }
-            else
+
+            if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
             {
-                if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
-                {
-                    Harass();
-                }
+                Harass();
+            }
 
-                if (Config.Item("FreezeActive").GetValue<KeyBind>().Active)
-                {
-                    FreezeFarm();
-                }
-                if (Config.Item("LaneClearActive").GetValue<KeyBind>().Active)
-                {
-                    LaneClear();
-                }
+            if (Config.Item("FreezeActive").GetValue<KeyBind>().Active)
+            {
+                FreezeFarm();
+            }
+            if (Config.Item("LaneClearActive").GetValue<KeyBind>().Active)
+            {
+                LaneClear();
+            }
 
-                if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
-                {
-                    JungleFarm();
-                }               
+            if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
+            {
+                JungleFarm();
+            }
 
-                if (Config.Item("Ward").GetValue<KeyBind>().Active)
-                {
-                    Jumper.wardJump(Game.CursorPos.To2D());
-                }
+            if (Config.Item("Ward").GetValue<KeyBind>().Active)
+            {
+                Jumper.wardJump(Game.CursorPos.To2D());
+            }
 
-                if (Config.Item("AutoSmite").GetValue<KeyBind>().Active)
-                {
-                    AutoSmite();
-                }
+            if (Config.Item("AutoSmite").GetValue<KeyBind>().Active)
+            {
+                AutoSmite();
+            }
 
-                if (Config.Item("AutoI").GetValue<bool>())
-                {
-                    AutoIgnite();
-                } 
+            if (Config.Item("AutoI").GetValue<bool>())
+            {
+                AutoIgnite();
+            }
 
-                if (Config.Item("AutoEWQTower").GetValue<KeyBind>().Active)
-                {
-                    AutoUnderTower();
-                }
-                
-            }            
-        }
+            if (Config.Item("AutoEWQTower").GetValue<KeyBind>().Active)
+            {
+                AutoUnderTower();
+            }
+        }                      
+        
 
         private static void AutoUnderTower()
         {
