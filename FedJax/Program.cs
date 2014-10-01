@@ -28,9 +28,9 @@ namespace FedJax
 
         private static SpellSlot IgniteSlot;
         private static SpellSlot SmiteSlot;
-
-        public static bool Eactive = false;
+        
         public static bool Wactive = false;
+        public static bool Eactive = false;
         public static int  countAttack = 0;
 
         public static Map map;
@@ -54,7 +54,7 @@ namespace FedJax
 
             Q = new Spell(SpellSlot.Q, 700f);
             W = new Spell(SpellSlot.W, 200f);
-            E = new Spell(SpellSlot.E, 200f);
+            E = new Spell(SpellSlot.E, 187f);
             R = new Spell(SpellSlot.R, 200f);
 
             IgniteSlot = Player.GetSpellSlot("SummonerDot");
@@ -105,9 +105,7 @@ namespace FedJax
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("JungleFarmActive", "JungleFarm!").SetValue(new KeyBind("V".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Misc", "Misc"));
-            Config.SubMenu("Misc").AddItem(new MenuItem("laugh", "Troll laugh?").SetValue(true));
-            Config.SubMenu("Misc").AddItem(new MenuItem("KS", "Use Q Kill Steal ").SetValue(false));
-            Config.SubMenu("Misc").AddItem(new MenuItem("useWKS", "Use W to KS").SetValue(false));
+            Config.SubMenu("Misc").AddItem(new MenuItem("laugh", "Troll laugh?").SetValue(true));            
             Config.SubMenu("Misc").AddItem(new MenuItem("AutoI", "Auto Ignite").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("stun", "Interrupt Spells").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("AutoEWQTower", "Auto Attack my tower").SetValue(false));
@@ -115,12 +113,12 @@ namespace FedJax
 
             Config.AddSubMenu(new Menu("Drawings", "Drawings"));
             Config.SubMenu("Drawings").AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));
-            Config.SubMenu("Drawings").AddItem(new MenuItem("Ward", "Draw Ward")).SetValue(true);            
+            Config.SubMenu("Drawings").AddItem(new MenuItem("JumpSmiteRange", "wJumper+Smite Range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));            
 
             Config.AddSubMenu(new Menu("Spells", "Spells"));
+            Config.SubMenu("Spells").AddItem(new MenuItem("setQ", "Use Q: ").SetValue(new StringList(new[] { "Out of Range", "Melee Range", "Both" }, 2)));
             Config.SubMenu("Spells").AddItem(new MenuItem("setW", "Use W: ").SetValue(new StringList(new[] { "Every AA", "After third AA" }, 1)));
-            Config.SubMenu("Spells").AddItem(new MenuItem("setE", "Use E: ").SetValue(new StringList(new[] { "Q Range", "Melee Range" }, 0)));
-            Config.SubMenu("Spells").AddItem(new MenuItem("activeE", "Activate E: ").SetValue(new StringList(new[] { "Instantly", "Max Radius", "No" }, 1)));
+            Config.SubMenu("Spells").AddItem(new MenuItem("setE", "Use E: ").SetValue(new StringList(new[] { "Q Range", "Melee Range", "Both" }, 0)));            
             Config.SubMenu("Spells").AddItem(new MenuItem("AutoUlt", "Enable Auto Ult").SetValue(true));
             Config.SubMenu("Spells").AddItem(new MenuItem("minEnemies", "Min. Enemies in Range").SetValue(new Slider(2, 5, 0)));
                         
@@ -148,8 +146,8 @@ namespace FedJax
 
             Game.OnGameUpdate += Game_OnGameUpdate;
             Drawing.OnDraw += Drawing_OnDraw;
-            Obj_AI_Base.OnProcessSpellCast += Obj_AI_Hero_OnProcessSpellCast;
-            Interrupter.OnPosibleToInterrupt += Interrupter_OnPosibleToInterrupt;
+            Obj_AI_Base.OnProcessSpellCast += OnProcessSpell;
+            Interrupter.OnPossibleToInterrupt += Interrupter_OnPossibleToInterrupt;
 
             Game.PrintChat("<font color=\"#00BFFF\">Fed" + ChampionName + " -</font> <font color=\"#FFFFFF\">Loaded!</font>");
 
@@ -157,24 +155,35 @@ namespace FedJax
 
         private static void Drawing_OnDraw(EventArgs args)
         {
+            var menuItem = Config.Item("JumpSmiteRange").GetValue<Circle>();
+            if (menuItem.Active) Utility.DrawCircle(Player.Position, 1100, menuItem.Color);
+            
             foreach (var spell in SpellList)
             {
-                var menuItem = Config.Item(spell.Slot + "Range").GetValue<Circle>();
+                 menuItem = Config.Item(spell.Slot + "Range").GetValue<Circle>();
                 if (menuItem.Active && spell.Level > 0)
                 {
-                    Utility.DrawCircle(Player.Position, spell.Range, menuItem.Color, 1, 5);
+                    Utility.DrawCircle(Player.Position, spell.Range, menuItem.Color);
                 }
-            }
-
-            if (Config.Item("Ward").GetValue<bool>())
-            {
-                Drawing.DrawCircle(Player.Position, 600, System.Drawing.Color.Aquamarine);
-            }
+            }            
         }
 
         private static void Game_OnGameUpdate(EventArgs args)
         {
-            if (Player.IsDead) return; 
+            if (Player.IsDead) return;
+
+            if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 1)
+            {
+                if (Config.Item("ComboActive").GetValue<KeyBind>().Active && Player.HasBuff("jaxrelentlessassaultas", true) && W.IsReady())
+                {
+                    W.Cast();
+                }
+            }
+
+            if (!Config.Item("ComboActive").GetValue<KeyBind>().Active && !Config.Item("HarassActive").GetValue<KeyBind>().Active)
+            {
+                Eactive = false;
+            }
 
             if (Config.Item("ComboActive").GetValue<KeyBind>().Active)
             {
@@ -183,7 +192,9 @@ namespace FedJax
             else
             {
                 if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
-                    Harass();                
+                {
+                    Harass();
+                }
 
                 if (Config.Item("FreezeActive").GetValue<KeyBind>().Active)
                 {
@@ -197,12 +208,7 @@ namespace FedJax
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
                 {
                     JungleFarm();
-                }
-
-                if (Config.Item("KS").GetValue<bool>() && !Config.Item("ComboActive").GetValue<KeyBind>().Active)
-                {
-                    KillSteal();
-                }
+                }               
 
                 if (Config.Item("Ward").GetValue<KeyBind>().Active)
                 {
@@ -213,6 +219,11 @@ namespace FedJax
                 {
                     AutoSmite();
                 }
+
+                if (Config.Item("AutoI").GetValue<bool>())
+                {
+                    AutoIgnite();
+                } 
 
                 if (Config.Item("AutoEWQTower").GetValue<KeyBind>().Active)
                 {
@@ -232,34 +243,12 @@ namespace FedJax
                 W.Cast();
                 Q.Cast(qTarget);
             }
-        }
-
-        private static void KillSteal()
-        {
-            var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
-            var Qdamage = DamageLib.getDmg(qTarget, DamageLib.SpellType.Q) * 0.95;
-            var Wdamage = DamageLib.getDmg(qTarget, DamageLib.SpellType.W) * 0.95;
-
-            if (qTarget != null && Q.IsReady() && Player.Distance(qTarget) <= Q.Range && qTarget.Health < Qdamage && Config.Item("KS").GetValue<bool>())
-            {
-                Q.CastOnUnit(qTarget);
-            }
-            else if (qTarget != null && Q.IsReady() && W.IsReady() && Player.Distance(qTarget) <= Q.Range && qTarget.Health < Qdamage + Wdamage && Config.Item("useWKS").GetValue<bool>() && Config.Item("KS").GetValue<bool>())
-            {
-                W.Cast();
-                Q.CastOnUnit(qTarget);
-            }
-
-            if (Config.Item("AutoI").GetValue<bool>())
-            {
-                AutoIgnite();
-            }
-        }
+        }   
 
         private static void AutoIgnite()
         {
             var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
-            var Idamage = DamageLib.getDmg(iTarget, DamageLib.SpellType.IGNITE) * 0.80;
+            var Idamage = ObjectManager.Player.GetSummonerSpellDamage(iTarget, Damage.SummonerSpell.Ignite) * 0.85;
 
             if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
             {
@@ -273,9 +262,9 @@ namespace FedJax
 
         private static void AutoUlt()
         {
-            int inimigos = Utility.CountEnemysInRange(650);            
+            int inimigos = Utility.CountEnemysInRange(650);
 
-            if (Config.Item("minEnemies").GetValue<Slider>().Value >= inimigos)
+            if (Config.Item("minEnemies").GetValue<Slider>().Value <= inimigos)
             {
                 R.Cast();
             }
@@ -284,53 +273,53 @@ namespace FedJax
         
         private static void CastSpellQ()
         {
+            var useQi = Config.Item("setQ").GetValue<StringList>().SelectedIndex;
             var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
-            
-            if (qTarget != null && Player.Distance(qTarget) <= Q.Range && Environment.TickCount - E.LastCastAttemptT >= 600 + Game.Ping)
-            {
-                if (!Config.Item("UnderTurretCombo").GetValue<bool>() && Config.Item("ComboActive").GetValue<KeyBind>().Active || !Config.Item("UnderTurretHarass").GetValue<bool>() && Config.Item("HarassActive").GetValue<KeyBind>().Active)
-                {
-                    if (!Utility.UnderTurret(qTarget))
-                    {
-                        Q.Cast(qTarget);
-                    }                    
-                }
-                else
-                {
-                    Q.Cast(qTarget);
-                }
-            }            
+
+            if (!Config.Item("UnderTurretCombo").GetValue<bool>() && Utility.UnderTurret(qTarget) && Config.Item("ComboActive").GetValue<KeyBind>().Active) return;
+            if (!Config.Item("UnderTurretHarass").GetValue<bool>() && Utility.UnderTurret(qTarget) && Config.Item("HarassActive").GetValue<KeyBind>().Active) return;
+
+            switch (useQi)
+            {                
+                case 0:
+                    if (qTarget.Distance(ObjectManager.Player) >= Orbwalking.GetRealAutoAttackRange(ObjectManager.Player) && Environment.TickCount - E.LastCastAttemptT >= 600 + Game.Ping)
+                        Q.CastOnUnit(qTarget);
+                    break;
+                case 1:
+                    if (qTarget.Distance(ObjectManager.Player) <= Orbwalking.GetRealAutoAttackRange(ObjectManager.Player) && Environment.TickCount - E.LastCastAttemptT >= 600 + Game.Ping)
+                        Q.CastOnUnit(qTarget);
+                    break;
+                case 2:
+                    if (Environment.TickCount - E.LastCastAttemptT >= 600 + Game.Ping)
+                    Q.CastOnUnit(qTarget);
+                    break;
+            }         
         }
 
         private static void CastSpellE()
-        {
-            if (Environment.TickCount - E.LastCastAttemptT >= 1800 + Game.Ping)
-            {
-                Eactive = false;
-            }
-
-            var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
+        { 
             var useEi = Config.Item("setE").GetValue<StringList>().SelectedIndex;
 
-            if (!Eactive && qTarget != null  && (useEi == 0 && Q.IsReady() && (Player.Distance(qTarget) <= Q.Range - 100 || Player.Distance(qTarget) <= E.Range)) || useEi == 1 && Player.Distance(qTarget) <= E.Range)
-            {                
-                    E.Cast();
-                    E.LastCastAttemptT = Environment.TickCount;
-                    Eactive = true;                
-            }            
+            if (!Eactive && ((useEi == 0 || useEi == 2)  && Q.IsReady() && (Utility.CountEnemysInRange((int)Q.Range + 200) >= 1)) ||
+                 (useEi >= 1 && (Utility.CountEnemysInRange((int)E.Range + 100) >= 1)))
+            {
+                E.Cast();
+                E.LastCastAttemptT = Environment.TickCount;
+                Eactive = true;
+            }
         }
 
         private static void ActivateE()
         {
             if (!E.IsReady() || !Eactive) return;
-
-            var eTarget = SimpleTs.GetTarget(E.Range + E.Width, SimpleTs.DamageType.Physical);
-
-            var activeE = Config.Item("activeE").GetValue<StringList>().SelectedIndex;
-            if (activeE != 2 && (activeE == 0 || activeE == 1) && Player.Distance(eTarget) <= E.Range - 3)
+            
+            if (E.IsReady() && Environment.TickCount - E.LastCastAttemptT <= 5000)
             {
-                E.Cast();
-                Eactive = false;
+                if (Utility.CountEnemysInRange((int)E.Range) >= 1)
+                {
+                    E.Cast();
+                    Eactive = false;
+                }
             }
         }
         
@@ -363,17 +352,12 @@ namespace FedJax
             {
                 AutoUlt();
             }
-
-            if (Config.Item("AutoI").GetValue<bool>())
-            {
-                AutoIgnite();
-            }            
+              
         }
 
         private static void Harass()
         {
-            var hTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);
-            var heTarget = SimpleTs.GetTarget(Q.Range-100, SimpleTs.DamageType.Physical);
+            var hTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Physical);            
 
             var HMana = Config.Item("ManaHarass").GetValue<Slider>().Value;
             var MPercentH = Player.Mana * 100 / Player.MaxMana;
@@ -386,74 +370,66 @@ namespace FedJax
                 {
                     case 0:
                         {
-                            if (Q.IsReady() && W.IsReady() && E.IsReady())
-                            {
-                                if (!Config.Item("UnderTurretCombo").GetValue<bool>())
+                            if (!Q.IsReady() || !W.IsReady() || !E.IsReady()) return;
+                            
+                                if ((Config.Item("UnderTurretHarass").GetValue<bool>() && Utility.UnderTurret(hTarget)) ||
+                                   (!Config.Item("UnderTurretHarass").GetValue<bool>() && !Utility.UnderTurret(hTarget)) ||
+                                   (Config.Item("UnderTurretHarass").GetValue<bool>() && !Utility.UnderTurret(hTarget)))
                                 {
-                                    if (!Utility.UnderTurret(hTarget))
-                                        Q.Cast(hTarget);
+                                    if (!Config.Item("UnderTurretHarass").GetValue<bool>() && Utility.UnderTurret(hTarget)) return;
+
+                                    Q.CastOnUnit(hTarget);
+                                    W.Cast();
+                                    E.Cast();   
                                 }
-                                else
-                                {
-                                    Q.Cast(hTarget);
-                                }
-                                
-                                W.Cast();
-                                E.Cast(heTarget);                                
-                            }
                             break;
                         }
                     case 1:
                         {
                             if (Q.IsReady() && W.IsReady())
                             {
-                                if (!Config.Item("UnderTurretCombo").GetValue<bool>())
+                                if ((Config.Item("UnderTurretHarass").GetValue<bool>() && Utility.UnderTurret(hTarget)) ||
+                                   (!Config.Item("UnderTurretHarass").GetValue<bool>() && !Utility.UnderTurret(hTarget)) ||
+                                   (Config.Item("UnderTurretHarass").GetValue<bool>() && !Utility.UnderTurret(hTarget)))
                                 {
-                                    if (!Utility.UnderTurret(hTarget))
-                                        Q.Cast(hTarget);
-                                }
-                                else
-                                {
-                                    Q.Cast(hTarget);
-                                }
-                                W.Cast();
+                                    if (!Config.Item("UnderTurretHarass").GetValue<bool>() && Utility.UnderTurret(hTarget)) return;
+
+                                    Q.CastOnUnit(hTarget);
+                                    W.Cast();
+                                }                                
                             }
                             break;
                         }
                     case 2:
                         {
-                            if (Q.IsReady() && E.IsReady())
-                            {
-                                if (!Config.Item("UnderTurretCombo").GetValue<bool>())
+                            if (!Q.IsReady() || !E.IsReady()) return;
+                            
+                                if ((Config.Item("UnderTurretHarass").GetValue<bool>() && Utility.UnderTurret(hTarget)) ||
+                                   (!Config.Item("UnderTurretHarass").GetValue<bool>() && !Utility.UnderTurret(hTarget)) ||
+                                   (Config.Item("UnderTurretHarass").GetValue<bool>() && !Utility.UnderTurret(hTarget)))
                                 {
-                                    if (!Utility.UnderTurret(hTarget))
-                                        Q.Cast(hTarget);
-                                }
-                                else
-                                {
-                                    Q.Cast(hTarget);
-                                }
-                                E.Cast(heTarget);
-                            }
+                                    if (!Config.Item("UnderTurretHarass").GetValue<bool>() && Utility.UnderTurret(hTarget)) return;
+
+                                    Q.CastOnUnit(hTarget);
+                                    E.Cast();
+                                } 
                             break;
                         }
                     case 3:
                         {
-                            if (Q.IsReady() && E.IsReady())
-                            {
-                                
-                                if (!Config.Item("UnderTurretCombo").GetValue<bool>())
+                            if (!Q.IsReady() || !E.IsReady()) return;
+                            
+
+                                if ((Config.Item("UnderTurretHarass").GetValue<bool>() && Utility.UnderTurret(hTarget)) ||
+                                   (!Config.Item("UnderTurretHarass").GetValue<bool>() && !Utility.UnderTurret(hTarget)) ||
+                                   (Config.Item("UnderTurretHarass").GetValue<bool>() && !Utility.UnderTurret(hTarget)))
                                 {
-                                    if (!Utility.UnderTurret(hTarget))
-                                        E.Cast(heTarget);
-                                        Q.Cast(hTarget);
+                                    if (!Config.Item("UnderTurretHarass").GetValue<bool>() && Utility.UnderTurret(hTarget)) return;
+
+                                    CastSpellE();
+                                    CastSpellQ();
+                                    ActivateE();
                                 }
-                                else
-                                {
-                                    E.Cast(heTarget);
-                                    Q.Cast(hTarget);
-                                }
-                            }
                             break;
                         }
                     case 4:
@@ -487,7 +463,7 @@ namespace FedJax
 
             foreach (var vMinion in allMinionsQ)
             {
-                var Qdamage = DamageLib.getDmg(vMinion, DamageLib.SpellType.Q) * 0.85;
+                var Qdamage = ObjectManager.Player.GetSpellDamage(vMinion, SpellSlot.Q) * 0.85;
 
                 if (Config.Item("UseQFarm").GetValue<bool>() && Q.IsReady() && Qdamage >= Q.GetHealthPrediction(vMinion))
                 {
@@ -505,7 +481,7 @@ namespace FedJax
 
             foreach (var vMinion in allMinionsQ)
             {
-                var Qdamage = DamageLib.getDmg(vMinion, DamageLib.SpellType.Q) * 0.85;
+                var Qdamage = ObjectManager.Player.GetSpellDamage(vMinion, SpellSlot.Q) * 0.85;
 
                 if (Config.Item("setW").GetValue<StringList>().SelectedIndex == 0 && W.IsReady() && Config.Item("UseWFarm").GetValue<bool>() && allMinionsQ.Count > 0)
                 {
@@ -546,7 +522,7 @@ namespace FedJax
             } 
         }
 
-        private static void Interrupter_OnPosibleToInterrupt(Obj_AI_Base vTarget, InterruptableSpell args)
+        private static void Interrupter_OnPossibleToInterrupt(Obj_AI_Base vTarget, InterruptableSpell args)
         {            
             if (!Config.Item("stun").GetValue<bool>())
                 return;
@@ -598,7 +574,7 @@ namespace FedJax
                 float[] SmiteDmg = { 20 * Player.Level + 370, 30 * Player.Level + 330, 40 * Player.Level + 240, 50 * Player.Level + 100 };
                 string[] MonsterNames = { "LizardElder", "AncientGolem", "Worm", "Dragon" };
                 string[] Monstersteal = { "Worm", "Dragon" };
-                var vMinions = MinionManager.GetMinions(Player.ServerPosition, 500+Player.SummonerSpellbook.Spells.FirstOrDefault(
+                var vMinions = MinionManager.GetMinions(Player.ServerPosition, 350+Player.SummonerSpellbook.Spells.FirstOrDefault(
                     spell => spell.Name.Contains("smite")).SData.CastRange[0], MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
                 foreach (var vMinion in vMinions)
                 {
@@ -613,7 +589,7 @@ namespace FedJax
                         {
                             if (Config.Item("WardJumpSmite").GetValue<bool>())
                             {
-                                if (Player.Distance(vMinion) > 700 && (Monstersteal.Any(name => vMinion.BaseSkinName.StartsWith(name))))
+                                if (Player.Distance(vMinion) > 720 && (Monstersteal.Any(name => vMinion.BaseSkinName.StartsWith(name))))
                                 {
                                     Jumper.wardJump(Game.CursorPos.To2D());
                                 }
@@ -632,37 +608,20 @@ namespace FedJax
             }
         }
 
-        private static void Obj_AI_Hero_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
+        private static void OnProcessSpell(LeagueSharp.Obj_AI_Base obj, LeagueSharp.GameObjectProcessSpellCastEventArgs arg)
         {
-            var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
-
-            if (sender.IsMe)
+            if (Jumper.testSpells.ToList().Contains(arg.SData.Name))
             {
-                if (args.SData.Name == "JaxRelentlessAssault" && Config.Item("setW").GetValue<StringList>().SelectedIndex == 1)
+                Jumper.testSpellCast = arg.End.To2D();
+                Polygon pol;
+                if ((pol = Program.map.getInWhichPolygon(arg.End.To2D())) != null)
                 {
-                    Wactive = false;
-                    countAttack = 0;
-                    //Game.PrintChat("Critico!");
-                }
-                
-                if (!Wactive && args.SData.Name == "JaxBasicAttack2" || args.SData.Name == "JaxBasicAttack" && Config.Item("setW").GetValue<StringList>().SelectedIndex == 1)
-                {
-                    countAttack = countAttack + 1;
-                    //Game.PrintChat("Count Attack: " + countAttack.ToString());
-
-                    if (countAttack == 2)
-                    {
-                        if (W.IsReady() && (Config.Item("ComboActive").GetValue<KeyBind>().Active || Config.Item("JungleFarmActive").GetValue<KeyBind>().Active))
-                        {
-                            W.Cast();
-                            Wactive = true;
-                            countAttack = 0;
-                        }
-                    }
+                    Jumper.testSpellProj = pol.getProjOnPolygon(arg.End.To2D());
                 }
             }
-
         }
+
+        
 
     }
 }

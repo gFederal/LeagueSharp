@@ -11,10 +11,12 @@ namespace FedJax
         public static Vector2 testSpellCast;
         public static Vector2 testSpellProj;
 
-        public static Obj_AI_Hero Player = ObjectManager.Player;
-        public static Spell W;
+        public static string[] testSpells = { "RelicSmallLantern", "RelicLantern", "SightWard", "wrigglelantern", "ItemGhostWard", "VisionWard",
+                                              "BantamTrap", "JackInTheBox","CaitlynYordleTrap", "Bushwhack"};
 
-        public static Obj_AI_Hero LockedTarget;
+        public static Obj_AI_Hero Player = ObjectManager.Player;
+        public static Spell Q;
+        
         public static float lastward = 0;
         public static float last = 0;
 
@@ -36,28 +38,28 @@ namespace FedJax
 
         public static void wardJump(Vector2 pos)
         {
-            W = new Spell(SpellSlot.Q, 700);
+            Q = new Spell(SpellSlot.Q, 700);
             Vector2 posStart = pos;
-            if (!W.IsReady())
+            if (!Q.IsReady())
                 return;
             bool wardIs = false;
-            if (!inDistance(pos, Player.ServerPosition.To2D(), W.Range + 15))
+            if (!inDistance(pos, Player.ServerPosition.To2D(), Q.Range + 15))
             {
                 pos = Player.ServerPosition.To2D() + Vector2.Normalize(pos - Player.ServerPosition.To2D()) * 600;
             }
 
-            if (!W.IsReady() && W.ChargedSpellName == "")
+            if (!Q.IsReady() && Q.ChargedSpellName == "")
                 return;
             foreach (Obj_AI_Base ally in ObjectManager.Get<Obj_AI_Base>().Where(ally => ally.IsAlly
                 && !(ally is Obj_AI_Turret) && inDistance(pos, ally.ServerPosition.To2D(), 200)))
             {
                 wardIs = true;
                 moveTo(pos);
-                if (inDistance(Player.ServerPosition.To2D(), ally.ServerPosition.To2D(), W.Range + ally.BoundingRadius))
+                if (inDistance(Player.ServerPosition.To2D(), ally.ServerPosition.To2D(), Q.Range + ally.BoundingRadius))
                 {
                     if (last < Environment.TickCount)
                     {
-                        W.Cast(ally);
+                        Q.Cast(ally);
                         last = Environment.TickCount + 2000;
                     }
                     else return;
@@ -67,7 +69,7 @@ namespace FedJax
             Polygon pol;
             if ((pol = Program.map.getInWhichPolygon(pos)) != null)
             {
-                if (inDistance(pol.getProjOnPolygon(pos), Player.ServerPosition.To2D(), W.Range + 15) && !wardIs && inDistance(pol.getProjOnPolygon(pos), pos, 200))
+                if (inDistance(pol.getProjOnPolygon(pos), Player.ServerPosition.To2D(), Q.Range + 15) && !wardIs && inDistance(pol.getProjOnPolygon(pos), pos, 200))
                 {
                     putWard(pos);
                 }
