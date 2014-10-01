@@ -9,7 +9,7 @@ using LeagueSharp.Common;
 
 #endregion
 
-namespace Leblanc
+namespace FedLeblanc
 {
     internal class Program
     {
@@ -45,12 +45,12 @@ namespace Leblanc
             Q = new Spell(SpellSlot.Q, 700);
             W = new Spell(SpellSlot.W, 600);
             E = new Spell(SpellSlot.E, 950);
-            R = new Spell(SpellSlot.R, 600);
+            R = new Spell(SpellSlot.R, 700);
 
             IgniteSlot = Player.GetSpellSlot("SummonerDot");
-            DFG = Utility.Map.GetMap() == Utility.Map.MapType.TwistedTreeline ? new Items.Item(3188, 750) : new Items.Item(3128, 750);
+            DFG = Utility.Map.GetMap()._MapType == Utility.Map.MapType.TwistedTreeline ? new Items.Item(3188, 750) : new Items.Item(3128, 750);
 
-            W.SetSkillshot(0.25f, 250, float.MaxValue, false, SkillshotType.SkillshotCircle);
+            W.SetSkillshot(0.5f, 220, 1300, false, SkillshotType.SkillshotCircle);
             E.SetSkillshot(0.25f, 95, 1600, true, SkillshotType.SkillshotLine);            
 
             SpellList.AddRange(new[] { Q, W, E, R });
@@ -66,18 +66,23 @@ namespace Leblanc
             Orbwalker = new Orbwalking.Orbwalker(Config.SubMenu("Orbwalking"));
 
             Config.AddSubMenu(new Menu("Combo", "Combo"));
+            Config.SubMenu("Combo").AddItem(new MenuItem("ComboMode", "Combo Mode: ").SetValue(new StringList(new[] { "Q+R+W+E", "Q+W+R+E" }, 0)));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseQCombo", "Use Q").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseWCombo", "Use W").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseECombo", "Use E").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseRCombo", "Use R").SetValue(true));
+            Config.SubMenu("Combo").AddItem(new MenuItem("UseDFGCombo", "Use DFG").SetValue(true));
+            Config.SubMenu("Combo").AddItem(new MenuItem("BackCombo", "Back W LowHP/MP or delay").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseIgniteCombo", "Use Ignite").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("ComboActive", "Combo!").SetValue(new KeyBind(32, KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Harass", "Harass"));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseQHarass", "Use Q").SetValue(true));
-            Config.SubMenu("Harass").AddItem(new MenuItem("UseWHarass", "Use W").SetValue(false));
+            Config.SubMenu("Harass").AddItem(new MenuItem("UseWHarass", "Use W").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseEHarass", "Use E").SetValue(false));
-            Config.SubMenu("Harass").AddItem(new MenuItem("UseWQHarass", "Use WQW Range").SetValue(true));
+            Config.SubMenu("Harass").AddItem(new MenuItem("UseRHarass", "Use R").SetValue(false));
+            Config.SubMenu("Harass").AddItem(new MenuItem("UseWQHarass", "Use W+Q Out Range").SetValue(true));
+            Config.SubMenu("Harass").AddItem(new MenuItem("BackHarass", "Back W end Harass").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("harassToggleQ", "Use Q (toggle)").SetValue<KeyBind>(new KeyBind('T', KeyBindType.Toggle)));
             Config.SubMenu("Harass").AddItem(new MenuItem("HarassActive", "Harass!").SetValue(new KeyBind("C".ToCharArray()[0], KeyBindType.Press)));
 
@@ -97,7 +102,7 @@ namespace Leblanc
             Config.SubMenu("JungleFarm").AddItem(new MenuItem("JungleFarmActive", "JungleFarm!").SetValue(new KeyBind("V".ToCharArray()[0],KeyBindType.Press)));            
 
             var dmgAfterComboItem = new MenuItem("DamageAfterCombo", "Draw damage after a rotation").SetValue(true);
-            Utility.HpBarDamageIndicator.DamageToUnit += hero => (float)(DamageLib.getDmg(hero, DamageLib.SpellType.Q) + DamageLib.getDmg(hero, DamageLib.SpellType.W) + DamageLib.getDmg(hero, DamageLib.SpellType.E) + DamageLib.getDmg(hero, DamageLib.SpellType.W));
+            Utility.HpBarDamageIndicator.DamageToUnit = GetComboDamage;
             Utility.HpBarDamageIndicator.Enabled = dmgAfterComboItem.GetValue<bool>();
             dmgAfterComboItem.ValueChanged += delegate(object sender, OnValueChangeEventArgs eventArgs)
             {
@@ -112,20 +117,13 @@ namespace Leblanc
             Config.SubMenu("Drawings").AddItem(dmgAfterComboItem);
             Config.AddToMainMenu();
             
-            Game.OnGameUpdate += Game_OnGameUpdate;
-            Obj_AI_Base.OnProcessSpellCast += Obj_AI_Hero_OnProcessSpellCast;
+            Game.OnGameUpdate += Game_OnGameUpdate;           
             Drawing.OnDraw += Drawing_OnDraw;
             AntiGapcloser.OnEnemyGapcloser += AntiGapcloser_OnEnemyGapcloser;
-            Interrupter.OnPosibleToInterrupt += Interrupter_OnPosibleToInterrupt;
-            Orbwalking.BeforeAttack += OrbwalkingOnBeforeAttack;
+            Interrupter.OnPossibleToInterrupt += Interrupter_OnPossibleToInterrupt;
+           
             Game.PrintChat("<font color=\"#00BFFF\">Fed" + ChampionName + " -</font> <font color=\"#FFFFFF\">Loaded!</font>");            
-        }
-
-        private static void OrbwalkingOnBeforeAttack(Orbwalking.BeforeAttackEventArgs args)
-        {
-            if (Config.Item("ComboActive").GetValue<KeyBind>().Active)
-                args.Process = !(Q.IsReady() || W.IsReady() || E.IsReady() || R.IsReady() || Player.Distance(args.Target) >= 600);
-        }
+        } 
 
         private static void AntiGapcloser_OnEnemyGapcloser(ActiveGapcloser gapcloser)
         {            
@@ -133,7 +131,7 @@ namespace Leblanc
             if (ePred.Hitchance >= HitChance.High)
                 E.Cast(ePred.CastPosition);
         }
-        private static void Interrupter_OnPosibleToInterrupt(Obj_AI_Base unit, InterruptableSpell spell)
+        private static void Interrupter_OnPossibleToInterrupt(Obj_AI_Base unit, InterruptableSpell spell)
         {
             PredictionOutput ePred = E.GetPrediction(unit);
             if (ePred.Hitchance >= HitChance.High)
@@ -165,8 +163,7 @@ namespace Leblanc
                 Combo();                
             }
             else
-            {                
-                
+            { 
                 if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
                     Harass();
 
@@ -179,7 +176,6 @@ namespace Leblanc
 
                 if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
                     JungleFarm();
-                
             }
                                    
         } 
@@ -189,88 +185,205 @@ namespace Leblanc
             var damage = 0d;
 
             if (Q.IsReady())
-                damage += DamageLib.getDmg(enemy, DamageLib.SpellType.Q);
+                damage += ObjectManager.Player.GetSpellDamage(enemy, SpellSlot.Q);
 
             if (DFG.IsReady())
-                damage += DamageLib.getDmg(enemy, DamageLib.SpellType.DFG) / 1.2;
+                damage += ObjectManager.Player.GetItemDamage(enemy, Damage.DamageItems.Dfg) / 1.2;
 
             if (W.IsReady())
-                damage += DamageLib.getDmg(enemy, DamageLib.SpellType.W);
+                damage += ObjectManager.Player.GetSpellDamage(enemy, SpellSlot.W);
 
             if (E.IsReady())
-                damage += DamageLib.getDmg(enemy, DamageLib.SpellType.E);
+                damage += ObjectManager.Player.GetSpellDamage(enemy, SpellSlot.E);
 
             if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready)
-                damage += DamageLib.getDmg(enemy, DamageLib.SpellType.IGNITE);
+                damage += ObjectManager.Player.GetSummonerSpellDamage(enemy, Damage.SummonerSpell.Ignite);
 
             if (R.IsReady())
-                damage += DamageLib.getDmg(enemy, DamageLib.SpellType.W);
+                damage += ObjectManager.Player.GetSpellDamage(enemy, SpellSlot.W);
 
             return (float)damage * (DFG.IsReady() ? 1.2f : 1);
         }
 
-        private static void UseSpells(bool useQ, bool useW, bool useR, bool useE, bool useIgnite)
+        private static void Combo()
         {
-            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);
-            var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
-            var rTarget = SimpleTs.GetTarget(R.Range + W.Width, SimpleTs.DamageType.Magical);
+            var ComboMode = Config.Item("ComboMode").GetValue<StringList>().SelectedIndex;
+
+            switch (ComboMode)
+            {
+                case 0:
+                    Combo1();
+                    break;
+                case 1:
+                    Combo2();
+                    break;
+            }                
+        }
+
+        private static void Combo1() // Q+R+W+E
+        {
+            var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Magical);
+            var wTarget = SimpleTs.GetTarget(W.Range, SimpleTs.DamageType.Magical);
+            var rTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Magical);
             var eTarget = SimpleTs.GetTarget(E.Range, SimpleTs.DamageType.Magical);
             var comboDamage = wTarget != null ? GetComboDamage(wTarget) : 0;
 
-            if (qTarget != null)
+            var useQ = Config.Item("UseQCombo").GetValue<bool>();
+            var useW = Config.Item("UseWCombo").GetValue<bool>();
+            var useE = Config.Item("UseECombo").GetValue<bool>();
+            var useR = Config.Item("UseRCombo").GetValue<bool>();
+            var userDFG = Config.Item("UseDFGCombo").GetValue<bool>();
+            var UseIgniteCombo = Config.Item("UseIgniteCombo").GetValue<bool>();
+
+            if (Q.IsReady() && R.IsReady() && useQ && useR)
             {
-                if (Player.Distance(qTarget) <= 650)
+                if (qTarget != null)
                 {
-                    //Q
-                    if (qTarget != null && useQ && Q.IsReady())
-                    {
-                        Q.CastOnUnit(qTarget);
-                    }
-                    //DFG (and ult if ready)
-                    else if (wTarget != null && comboDamage > wTarget.Health && DFG.IsReady() && W.IsReady() && R.IsReady())
+                    Q.CastOnUnit(qTarget);
+
+                    if (userDFG && wTarget != null && comboDamage > wTarget.Health && DFG.IsReady() && W.IsReady() && R.IsReady())
                     {
                         DFG.Cast(wTarget);
                     }
-                    //W
-                    else if (wTarget != null && W.IsReady() && useW && Environment.TickCount - W.LastCastAttemptT > 2500)
+
+                    if (Player.Spellbook.GetSpell(SpellSlot.R).Name.Contains("LeblancChaos"))
                     {
-                        W.CastOnUnit(wTarget);
-                    }
-                    //R
-                    else if (rTarget != null && R.IsReady() && useR)
-                    {
-                        R.CastOnUnit(rTarget);
-                    }
-                    //E
-                    else if (eTarget != null && E.IsReady() && useE)
-                    {
-                        PredictionOutput ePred = E.GetPrediction(eTarget);
-                        if (ePred.Hitchance >= HitChance.High)
-                            E.Cast(ePred.CastPosition);
-                    }
-                    //Ignite
-                    else if (wTarget != null && useIgnite && IgniteSlot != SpellSlot.Unknown &&
-                        Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready)
-                    {
-                        if (comboDamage > wTarget.Health)
-                        {
-                            Player.SummonerSpellbook.CastSpell(IgniteSlot, wTarget);
-                        }
-                    }
-                    else
-                    {
-                        Q.CastOnUnit(qTarget);
+                        R.CastOnUnit(qTarget);
                     }
                 }
-            }          
-        }
-        
+            }
+            else
+            {
+                if (useW && wTarget != null && W.IsReady() && !LeblancPulo())
+                {
+                    W.CastOnUnit(wTarget);
+                }
 
-        private static void Combo()
+                if (useE && eTarget != null && E.IsReady())
+                {
+                    PredictionOutput ePred = E.GetPrediction(eTarget);
+                    if (ePred.Hitchance >= HitChance.High)
+                        E.Cast(ePred.CastPosition);
+                }
+
+                if (useQ && qTarget != null && Q.IsReady())
+                {
+                    Q.CastOnUnit(qTarget);
+                }
+
+                if (useR && qTarget != null && R.IsReady() && Player.Spellbook.GetSpell(SpellSlot.R).Name.Contains("LeblancChaos"))
+                {
+                    R.Cast(qTarget);
+                }
+
+                if (Config.Item("BackCombo").GetValue<bool>() && LeblancPulo() && (qTarget == null || 
+                    !W.IsReady() && !Q.IsReady() && !R.IsReady() || 
+                    GetHPPercent() < 15 ||
+                    GetMPPercent() < 15 ))
+                {
+                    W.Cast();
+                }
+            }
+
+            if (wTarget != null && IgniteSlot != SpellSlot.Unknown &&
+                        Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready)
+            {
+                if (Player.Distance(wTarget) < 650 && comboDamage > wTarget.Health && UseIgniteCombo)
+                {
+                    Player.SummonerSpellbook.CastSpell(IgniteSlot, wTarget);
+                }
+            }            
+        }
+
+        private static void Combo2() // Q+W+R+E
         {
-                UseSpells(Config.Item("UseQCombo").GetValue<bool>(), Config.Item("UseWCombo").GetValue<bool>(),
-                Config.Item("UseRCombo").GetValue<bool>(), Config.Item("UseECombo").GetValue<bool>(),
-                Config.Item("UseIgniteCombo").GetValue<bool>());
+            var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Magical);
+            var wTarget = SimpleTs.GetTarget(W.Range, SimpleTs.DamageType.Magical);
+            var rTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Magical);
+            var eTarget = SimpleTs.GetTarget(E.Range, SimpleTs.DamageType.Magical);
+            var comboDamage = wTarget != null ? GetComboDamage(wTarget) : 0;
+
+            var useQ = Config.Item("UseQCombo").GetValue<bool>();
+            var useW = Config.Item("UseWCombo").GetValue<bool>();
+            var useE = Config.Item("UseECombo").GetValue<bool>();
+            var useR = Config.Item("UseRCombo").GetValue<bool>();
+            var userDFG = Config.Item("UseDFGCombo").GetValue<bool>();
+            var UseIgniteCombo = Config.Item("UseIgniteCombo").GetValue<bool>();
+
+            if (Q.IsReady() && W.IsReady() && R.IsReady() && useQ && useR && useW)
+            {
+                if (qTarget != null)
+                {
+                    Q.CastOnUnit(qTarget);
+
+                    if (userDFG && wTarget != null && comboDamage > wTarget.Health && DFG.IsReady() && W.IsReady() && R.IsReady())
+                    {
+                        DFG.Cast(wTarget);
+                    }
+
+                    if (Player.Spellbook.GetSpell(SpellSlot.R).Name.Contains("LeblancChaos"))
+                    {
+                        W.CastOnUnit(qTarget);
+                    }
+
+                    if (Player.Spellbook.GetSpell(SpellSlot.R).Name.Contains("LeblancSlideM") && LeblancPulo())
+                    {
+                        R.CastOnUnit(qTarget);
+                    }
+                    
+                }
+            }
+            else
+            {
+                if (useE && eTarget != null && E.IsReady())
+                {
+                    PredictionOutput ePred = E.GetPrediction(eTarget);
+                    if (ePred.Hitchance >= HitChance.High)
+                        E.Cast(ePred.CastPosition);
+                }
+
+                if (useW && wTarget != null && W.IsReady() && !LeblancPulo())
+                {
+                    W.CastOnUnit(wTarget);
+                }
+
+                if (useQ && qTarget != null && Q.IsReady())
+                {
+                    Q.CastOnUnit(qTarget);
+                }
+
+                if (useR && qTarget != null && R.IsReady() && (Player.Spellbook.GetSpell(SpellSlot.R).Name.Contains("LeblancChaos") ||
+                                                               Player.Spellbook.GetSpell(SpellSlot.R).Name.Contains("LeblancSlideM")))
+                {
+                    R.Cast(qTarget);
+                }
+
+                if (Config.Item("BackCombo").GetValue<bool>() && LeblancPulo() && (qTarget == null ||
+                    !W.IsReady() && !Q.IsReady() && !R.IsReady() ||
+                    GetHPPercent() < 15 ||
+                    GetMPPercent() < 15))
+                {
+                    W.Cast();
+                }
+            }
+
+            if (wTarget != null && IgniteSlot != SpellSlot.Unknown &&
+                        Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready)
+            {
+                if (Player.Distance(wTarget) < 650 && comboDamage > wTarget.Health && UseIgniteCombo)
+                {
+                    Player.SummonerSpellbook.CastSpell(IgniteSlot, wTarget);
+                }
+            }
+        }
+
+        private static float GetHPPercent()
+        {
+            return (ObjectManager.Player.Health / ObjectManager.Player.MaxHealth) * 100f;
+        }
+        private static float GetMPPercent()
+        {
+            return (ObjectManager.Player.Mana / ObjectManager.Player.MaxMana) * 100f;
         }
 
         private static void ToggleHarass()
@@ -284,35 +397,67 @@ namespace Leblanc
 
         }
 
-        private static void Harass()
+        private static bool LeblancPulo()
         {
-            var target = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Magical);
-            var rtarget = SimpleTs.GetTarget((W.Range + Q.Range), SimpleTs.DamageType.Magical);
-
-            if (Config.Item("UseWQHarass").GetValue<bool>() && Player.Distance(rtarget) > Q.Range && Player.Distance(rtarget) <= (W.Range + Q.Range) * 0.9)
+            if (!W.IsReady() || Player.Spellbook.GetSpell(SpellSlot.W).Name == "leblancslidereturn")
             {
-                if (W.IsReady() && Q.IsReady())
-                {
-                    W.Cast(rtarget);
-                }                
+                return true;
             }
             else
             {
+                return false;
+            }
+        }
 
-                if (target != null && Config.Item("UseQHarass").GetValue<bool>())
+        private static void Harass()
+        {
+            var target = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Magical);
+            var rtarget = SimpleTs.GetTarget(W.Range + Q.Range, SimpleTs.DamageType.Magical);            
+            
+            if (Config.Item("UseWQHarass").GetValue<bool>() && Player.Distance(rtarget) > Q.Range && Player.Distance(rtarget) <= W.Range + Q.Range)
+            {
+                if (W.IsReady() && Q.IsReady())
+                {
+                    W.Cast(rtarget.ServerPosition); 
+                }
+
+                if (target != null && Config.Item("UseQHarass").GetValue<bool>() && Q.IsReady() && Player.Spellbook.GetSpell(SpellSlot.R).Name.Contains("LeblancSlideM"))
                 {
                     Q.CastOnUnit(target);
                 }
-                if (target != null && (Config.Item("UseWHarass").GetValue<bool>() || Config.Item("UseWQHarass").GetValue<bool>()))
+                
+            }
+            else
+            {
+                if (target != null && Config.Item("UseRHarass").GetValue<bool>() && R.IsReady() && Player.Spellbook.GetSpell(SpellSlot.R).Name.Contains("LeblancChaos"))
+                {
+                    R.CastOnUnit(target);
+                }
+
+                if (target != null && Config.Item("UseQHarass").GetValue<bool>() && Q.IsReady())
+                {
+                    Q.CastOnUnit(target);
+                }
+
+                if (target != null && Config.Item("UseWHarass").GetValue<bool>() && !LeblancPulo())
                 {
                     W.CastOnUnit(target);
                 }
+
                 if (target != null && Config.Item("UseEHarass").GetValue<bool>())
                 {
                     PredictionOutput ePred = E.GetPrediction(target);
                     if (ePred.Hitchance >= HitChance.High)
                         E.Cast(ePred.CastPosition);
-                }                
+                }
+                
+                if (Config.Item("UseWQHarass").GetValue<bool>() && Config.Item("BackHarass").GetValue<bool>() && LeblancPulo() && !Q.IsReady())
+                {
+                    if (Config.Item("UseRHarass").GetValue<bool>() && R.IsReady()) return;
+                    if (Config.Item("UseEHarass").GetValue<bool>() && E.IsReady()) return;
+
+                    W.Cast();
+                }
             }
         }
 
@@ -346,7 +491,7 @@ namespace Leblanc
                 foreach (var minion in allMinions)
                 {
                     if (minion.IsValidTarget() &&
-                        minion.Health < 0.75 * DamageLib.getDmg(minion, DamageLib.SpellType.Q))
+                        minion.Health < 0.75 * ObjectManager.Player.GetSpellDamage(minion, SpellSlot.Q))
                     {
                         Q.CastOnUnit(minion);                        
                     }
@@ -364,7 +509,7 @@ namespace Leblanc
                 foreach (var minion in allMinions)
                 {
                     if (minion.IsValidTarget(E.Range) &&
-                        minion.Health < 0.80 * DamageLib.getDmg(minion, DamageLib.SpellType.E))
+                        minion.Health < 0.80 * ObjectManager.Player.GetSpellDamage(minion, SpellSlot.E))
                     {
                         E.Cast(minion);                        
                     }
@@ -375,7 +520,7 @@ namespace Leblanc
                 foreach (var minion in allMinions)
                 {
                     if (useQ && minion.IsValidTarget() &&
-                        minion.Health < 0.80 * DamageLib.getDmg(minion, DamageLib.SpellType.Q))
+                        minion.Health < 0.80 * ObjectManager.Player.GetSpellDamage(minion, SpellSlot.Q))
                         Q.CastOnUnit(minion);
 
                     if (useW)                        
@@ -403,22 +548,6 @@ namespace Leblanc
                 W.Cast(mob);                
                 E.Cast(mob);                
             }
-        }
-
-        private static void Obj_AI_Hero_OnProcessSpellCast(Obj_AI_Base sender, GameObjectProcessSpellCastEventArgs args)
-        {
-            var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
-            
-            if (sender.IsMe && args.SData.Name == "LeblancSlide")
-            {
-                R.CastOnUnit(wTarget);
-                W.LastCastAttemptT = Environment.TickCount;
-            }
-            else if (sender.IsMe && args.SData.Name == "LeblancSlideM")
-            {
-                R.LastCastAttemptT = Environment.TickCount;
-            }            
-
-        }
+        }       
     }
 }
