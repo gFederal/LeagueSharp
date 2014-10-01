@@ -27,13 +27,14 @@ namespace FedJax
         public static Spell R;
 
         private static SpellSlot IgniteSlot;
-        private static SpellSlot SmiteSlot;
+        private static SpellSlot SmiteSlot;       
         
         public static bool Wactive = false;
         public static bool Eactive = false;
         public static int  countAttack = 0;
 
         public static Map map;
+        public static Helper Helper;
         public static Menu Config;
         public static Menu TargetedItems;
         public static Menu NoTargetedItems;
@@ -43,6 +44,7 @@ namespace FedJax
         private static void Main(string[] args)
         {
             map = new Map();
+            Helper = new Helper();
             CustomEvents.Game.OnGameLoad += Game_OnGameLoad;
         }
 
@@ -58,9 +60,11 @@ namespace FedJax
             R = new Spell(SpellSlot.R, 200f);
 
             IgniteSlot = Player.GetSpellSlot("SummonerDot");
-            SmiteSlot = Player.GetSpellSlot("SummonerSmite");
+            SmiteSlot = Player.GetSpellSlot("SummonerSmite");           
 
             SpellList.AddRange(new[] { Q, W, E, R });
+
+            
 
             Config = new Menu("Fed" + ChampionName, ChampionName, true);
 
@@ -180,6 +184,11 @@ namespace FedJax
                 }
             }
 
+            if (Config.Item("AutoI").GetValue<bool>())
+            {
+                AutoIgnite();
+            }
+
             if (!Config.Item("ComboActive").GetValue<KeyBind>().Active && !Config.Item("HarassActive").GetValue<KeyBind>().Active)
             {
                 Eactive = false;
@@ -207,7 +216,7 @@ namespace FedJax
             if (Config.Item("JungleFarmActive").GetValue<KeyBind>().Active)
             {
                 JungleFarm();
-            }
+            }            
 
             if (Config.Item("Ward").GetValue<KeyBind>().Active)
             {
@@ -217,12 +226,7 @@ namespace FedJax
             if (Config.Item("AutoSmite").GetValue<KeyBind>().Active)
             {
                 AutoSmite();
-            }
-
-            if (Config.Item("AutoI").GetValue<bool>())
-            {
-                AutoIgnite();
-            }
+            }            
 
             if (Config.Item("AutoEWQTower").GetValue<KeyBind>().Active)
             {
@@ -241,20 +245,22 @@ namespace FedJax
                 W.Cast();
                 Q.Cast(qTarget);
             }
-        }   
+        }
 
         private static void AutoIgnite()
         {
-            var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
-            var Idamage = ObjectManager.Player.GetSummonerSpellDamage(iTarget, Damage.SummonerSpell.Ignite) * 0.85;
+            if (IgniteSlot == SpellSlot.Unknown || ObjectManager.Player.SummonerSpellbook.CanUseSpell(IgniteSlot) != SpellState.Ready) return;            
 
-            if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
+            const int range = 600;
+
+            foreach (var enemy in Program.Helper.EnemyTeam.Where(hero => hero.IsValidTarget(range) && ObjectManager.Player.GetSummonerSpellDamage(hero, Damage.SummonerSpell.Ignite) * 0.9 >= hero.Health))
             {
-                Player.SummonerSpellbook.CastSpell(IgniteSlot, iTarget);
+                ObjectManager.Player.SummonerSpellbook.CastSpell(IgniteSlot, enemy);
                 if (Config.Item("laugh").GetValue<bool>())
                 {
                     Game.Say("/l");
                 }
+                return;
             }
         }
 
@@ -266,7 +272,6 @@ namespace FedJax
             {
                 R.Cast();
             }
-
         }
         
         private static void CastSpellQ()
