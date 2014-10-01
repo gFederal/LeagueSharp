@@ -27,11 +27,9 @@ namespace FedJax
         public static Spell R;
 
         private static SpellSlot IgniteSlot;
-        private static SpellSlot SmiteSlot;       
-        
-        public static bool Wactive = false;
-        public static bool Eactive = false;
-        public static int  countAttack = 0;
+        private static SpellSlot SmiteSlot;
+
+        public static bool Eactive = false;        
 
         public static Map map;
         public static Helper Helper;
@@ -285,15 +283,14 @@ namespace FedJax
             switch (useQi)
             {                
                 case 0:
-                    if (qTarget.Distance(ObjectManager.Player) >= Orbwalking.GetRealAutoAttackRange(ObjectManager.Player) && Environment.TickCount - E.LastCastAttemptT >= 600 + Game.Ping)
+                    if (qTarget.Distance(ObjectManager.Player) >= Orbwalking.GetRealAutoAttackRange(ObjectManager.Player))
                         Q.CastOnUnit(qTarget);
                     break;
                 case 1:
-                    if (qTarget.Distance(ObjectManager.Player) <= Orbwalking.GetRealAutoAttackRange(ObjectManager.Player) && Environment.TickCount - E.LastCastAttemptT >= 600 + Game.Ping)
+                    if (qTarget.Distance(ObjectManager.Player) <= Orbwalking.GetRealAutoAttackRange(ObjectManager.Player))
                         Q.CastOnUnit(qTarget);
                     break;
-                case 2:
-                    if (Environment.TickCount - E.LastCastAttemptT >= 600 + Game.Ping)
+                case 2:                    
                     Q.CastOnUnit(qTarget);
                     break;
             }         
