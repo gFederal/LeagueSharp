@@ -1,14 +1,10 @@
-﻿#region
-
+#region
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Input;
 using LeagueSharp;
 using LeagueSharp.Common;
 using SharpDX;
 using Color = System.Drawing.Color;
-
 #endregion
 
 namespace FedNocturne
@@ -28,7 +24,7 @@ namespace FedNocturne
         public static Menu Config;
         public static Menu TargetedItems;
         public static Menu NoTargetedItems;
-        private static Obj_AI_Hero Player;
+        private static readonly Obj_AI_Hero Player = ObjectManager.Player;
         
         private static void Main(string[] args)
         {
@@ -37,8 +33,6 @@ namespace FedNocturne
 
         private static void Game_OnGameLoad(EventArgs args)
         {
-            Player = ObjectManager.Player;
-
             if (Player.BaseSkinName != ChampionName) return;
 
             Q = new Spell(SpellSlot.Q, 1200f);
@@ -47,6 +41,8 @@ namespace FedNocturne
             R = new Spell(SpellSlot.R, 25000f);
 
             Q.SetSkillshot(0.25f, 60f, 1600f, false, SkillshotType.SkillshotLine);       
+            E.SetTargetted(0.5f, 1700f);
+            R.SetTargetted(0.75f, 2500f);
 
             IgniteSlot = Player.GetSpellSlot("SummonerDot");
             SmiteSlot = Player.GetSpellSlot("SummonerSmite");            
@@ -134,7 +130,6 @@ namespace FedNocturne
 
         private static void Game_OnGameUpdate(EventArgs args)
         {
-
             if (ObjectManager.Player.IsDead) return;
 
             if (Config.Item("ComboActive").GetValue<KeyBind>().Active)
@@ -143,7 +138,6 @@ namespace FedNocturne
             }
             else
             {
-
                 if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
                 {
                     Harass();
@@ -182,7 +176,7 @@ namespace FedNocturne
 
             if (R.IsReady() && Config.Item("useR_Killableping").GetValue<bool>())
             {
-                foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => h.IsValidTarget(GetRRange()) && EnemmylowHP(Config.Item("HPR").GetValue<Slider>().Value, GetRRange())))
+                foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(h => h.IsValidTarget(GetRRange()) && EnemyLowHP(Config.Item("HPR").GetValue<Slider>().Value, GetRRange())))
                 {
                     Ping(enemy.Position.To2D());
                 }
@@ -196,31 +190,31 @@ namespace FedNocturne
 
         public static void UseItems(Obj_AI_Hero vTarget)
         {
-            if (vTarget != null)
-            {
-                foreach (MenuItem menuItem in TargetedItems.Items)
-                {
-                    var useItem = TargetedItems.Item(menuItem.Name).GetValue<bool>();
-                    if (useItem)
-                    {
-                        var itemID = Convert.ToInt16(menuItem.Name.ToString().Substring(4, 4));
-                        if (Items.HasItem(itemID) && Items.CanUseItem(itemID) && GetInventorySlot(itemID) != null)
-                            Items.UseItem(itemID, vTarget);
-                    }
-                }
+            if (vTarget == null) return;
 
-                foreach (MenuItem menuItem in NoTargetedItems.Items)
-                {
-                    var useItem = NoTargetedItems.Item(menuItem.Name).GetValue<bool>();
-                    if (useItem)
-                    {
-                        var itemID = Convert.ToInt16(menuItem.Name.ToString().Substring(4, 4));
-                        if (Items.HasItem(itemID) && Items.CanUseItem(itemID) && GetInventorySlot(itemID) != null)
-                            Items.UseItem(itemID);
-                    }
-                }
+            foreach (var itemID in from menuItem in TargetedItems.Items
+                                   let useItem = TargetedItems.Item(menuItem.Name).GetValue<bool>()
+                                   where useItem
+                                   select Convert.ToInt16(menuItem.Name.Substring(4, 4))
+                                       into itemId
+                                       where Items.HasItem(itemId) && Items.CanUseItem(itemId) && GetInventorySlot(itemId) != null
+                                       select itemId)
+            {
+                Items.UseItem(itemID, vTarget);
+            }
+
+            foreach (var itemID in from menuItem in TargetedItems.Items
+                                   let useItem = TargetedItems.Item(menuItem.Name).GetValue<bool>()
+                                   where useItem
+                                   select Convert.ToInt16(menuItem.Name.Substring(4, 4))
+                                       into itemId
+                                       where Items.HasItem(itemId) && Items.CanUseItem(itemId) && GetInventorySlot(itemId) != null
+                                       select itemId)
+            {
+                Items.UseItem(itemID);
             }
         }
+
 
         private static void AutoIgnite()
         {
@@ -234,27 +228,26 @@ namespace FedNocturne
         }
         private static void AutoSmite()
         {
-            if (Config.Item("AutoSmite").GetValue<KeyBind>().Active)
+            if (SmiteSlot == SpellSlot.Unknown)
+                return;
+
+            if (!Config.Item("AutoSmite").GetValue<KeyBind>().Active) return;
+
+            string[] monsterNames = { "LizardElder", "AncientGolem", "Worm", "Dragon" };
+            var firstOrDefault = Player.SummonerSpellbook.Spells.FirstOrDefault(
+                spell => spell.Name.Contains("mite"));
+            if (firstOrDefault == null) return;
+
+            var vMonsters = MinionManager.GetMinions(Player.ServerPosition, firstOrDefault.SData.CastRange[0], MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
+            foreach (var vMonster in vMonsters.Where(vMonster => vMonster != null
+                                                              && !vMonster.IsDead
+                                                              && !Player.IsDead
+                                                              && !Player.IsStunned
+                                                              && SmiteSlot != SpellSlot.Unknown
+                                                              && Player.SummonerSpellbook.CanUseSpell(SmiteSlot) == SpellState.Ready)
+                                                              .Where(vMonster => (vMonster.Health < Player.GetSummonerSpellDamage(vMonster, Damage.SummonerSpell.Smite)) && (monsterNames.Any(name => vMonster.BaseSkinName.StartsWith(name)))))
             {
-                float[] SmiteDmg = { 20 * Player.Level + 370, 30 * Player.Level + 330, 40 * Player.Level + 240, 50 * Player.Level + 100 };
-                string[] MonsterNames = { "LizardElder", "AncientGolem", "Worm", "Dragon" };
-                var vMinions = MinionManager.GetMinions(Player.ServerPosition, Player.SummonerSpellbook.Spells.FirstOrDefault(
-                    spell => spell.Name.Contains("smite")).SData.CastRange[0], MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
-                foreach (var vMinion in vMinions)
-                {
-                    if (vMinion != null
-                        && !vMinion.IsDead
-                        && !Player.IsDead
-                        && !Player.IsStunned
-                        && SmiteSlot != SpellSlot.Unknown
-                        && Player.SummonerSpellbook.CanUseSpell(SmiteSlot) == SpellState.Ready)
-                    {
-                        if ((vMinion.Health < SmiteDmg.Max()) && (MonsterNames.Any(name => vMinion.BaseSkinName.StartsWith(name))))
-                        {
-                            Player.SummonerSpellbook.CastSpell(SmiteSlot, vMinion);  
-                        }
-                    }
-                }
+                Player.SummonerSpellbook.CastSpell(SmiteSlot, vMonster);
             }
         }
         private static float GetRRange()
@@ -311,7 +304,7 @@ namespace FedNocturne
             var rTarget = SimpleTs.GetTarget(GetRRange(), SimpleTs.DamageType.Physical);
             if (R.IsReady() && rTarget != null)
             {
-                if (ObjectManager.Player.Distance(rTarget) > 1100 && EnemmylowHP(Config.Item("HPR").GetValue<Slider>().Value, GetRRange()))
+                if (ObjectManager.Player.Distance(rTarget) > 1100 && EnemyLowHP(Config.Item("HPR").GetValue<Slider>().Value, GetRRange()))
                 {
                     R.Cast();
                     R.CastOnUnit(rTarget, true);
@@ -320,33 +313,35 @@ namespace FedNocturne
         }
         private static void Combo()
         {
+            var qTarget = SimpleTs.GetTarget(Q.Range - 50, SimpleTs.DamageType.Physical);
+            var eTarget = SimpleTs.GetTarget(E.Range - 30, SimpleTs.DamageType.Physical); 
             var rTarget = SimpleTs.GetTarget(GetRRange(), SimpleTs.DamageType.Physical);
+            
             if (R.IsReady() && Config.Item("UseRCombo").GetValue<bool>())
             {
-                if (ObjectManager.Player.Distance(rTarget) > 1100 && EnemmylowHP(Config.Item("UseRHP").GetValue<Slider>().Value, GetRRange()))
+                if (ObjectManager.Player.Distance(rTarget) > 1100 && EnemyLowHP(Config.Item("UseRHP").GetValue<Slider>().Value, GetRRange()))
                 {
                     R.Cast();
                     R.CastOnUnit(rTarget, true);
                 }
-            }            
+            }
 
-            var qTarget = SimpleTs.GetTarget(Q.Range - 50, SimpleTs.DamageType.Physical);
+            var vTarget = SimpleTs.GetTarget(Orbwalking.GetRealAutoAttackRange(ObjectManager.Player), SimpleTs.DamageType.Physical);
 
-            if (qTarget != null && Config.Item("UseItensCombo").GetValue<bool>())
+            if (vTarget != null )
             {
-                UseItems(qTarget);
+                UseItems(vTarget);
             }
 
             if (Q.IsReady() && Config.Item("UseQCombo").GetValue<bool>())
             {
                 if (Q.GetPrediction(qTarget).Hitchance >= HitChance.High)
-                    Q.Cast(qTarget, true);
+                    Q.Cast(qTarget.Position, true);
             }
 
-            var eTarget = SimpleTs.GetTarget(E.Range - 30, SimpleTs.DamageType.Physical);
             if (E.IsReady() && Config.Item("UseECombo").GetValue<bool>())
             {
-                E.CastOnUnit(qTarget, true);
+                E.CastOnUnit(eTarget, true);
             }
 
             if (W.IsReady() && Config.Item("UseWCombo").GetValue<bool>())
@@ -360,26 +355,27 @@ namespace FedNocturne
         private static void Harass()
         {
             var qTarget = SimpleTs.GetTarget(Q.Range - 50, SimpleTs.DamageType.Physical);
+            var eTarget = SimpleTs.GetTarget(E.Range - 30, SimpleTs.DamageType.Physical);
+
             if (Q.IsReady() && Config.Item("UseQHarass").GetValue<bool>())
             {
                 if (Q.GetPrediction(qTarget).Hitchance >= HitChance.High)
-                    Q.Cast(qTarget, true);
+                    Q.Cast(qTarget.Position, true);
             }
-
-            var eTarget = SimpleTs.GetTarget(E.Range - 30, SimpleTs.DamageType.Physical);
-            if (E.IsReady() && Config.Item("UseEHarass").GetValue<bool>())
+            
+            if (eTarget != null && E.IsReady() && Config.Item("UseEHarass").GetValue<bool>())
             {
                 E.CastOnUnit(qTarget, true);
             }
         }
         private static void LaneClear()
         {
-            List<Obj_AI_Base> minions = MinionManager.GetMinions(ObjectManager.Player.ServerPosition, Q.Range, MinionTypes.All, MinionTeam.NotAlly);
+            var minions = MinionManager.GetMinions(ObjectManager.Player.ServerPosition, Q.Range, MinionTypes.All, MinionTeam.NotAlly);
 
             if (Q.IsReady() && Config.Item("UseQFarm").GetValue<bool>())
             {
-                List<Vector2> minionPs = MinionManager.GetMinionsPredictedPositions(minions, 0.25f, 60f, 1600f, ObjectManager.Player.ServerPosition, 1200f, false, SkillshotType.SkillshotLine);
-                MinionManager.FarmLocation farm = Q.GetLineFarmLocation(minionPs);
+                var minionPs = MinionManager.GetMinionsPredictedPositions(minions, 0.25f, 60f, 1600f, ObjectManager.Player.ServerPosition, 1200f, false, SkillshotType.SkillshotLine);
+                var farm = Q.GetLineFarmLocation(minionPs);
                 if (farm.MinionsHit >= Config.Item("useQHit").GetValue<Slider>().Value)
                 {
                     Q.Cast(farm.Position, true);
@@ -388,16 +384,14 @@ namespace FedNocturne
         }
         private static void JungleFarm()
         {
-            var mobs = MinionManager.GetMinions(ObjectManager.Player.ServerPosition, Q.Range,
-                MinionTypes.All,
-                MinionTeam.Neutral, MinionOrderTypes.MaxHealth);
+            var mobs = MinionManager.GetMinions(ObjectManager.Player.ServerPosition, Q.Range, MinionTypes.All, MinionTeam.Neutral, MinionOrderTypes.MaxHealth);
             if (mobs.Count > 0)
             {
                 var mob = mobs[0];
 
                 if (Q.IsReady() && Config.Item("UseQJFarm").GetValue<bool>())
                 {
-                    Q.Cast(mob);
+                    Q.Cast(mob.Position);
                 }
                 if (W.IsReady() && Config.Item("UseWJFarm").GetValue<bool>())
                 {
@@ -405,25 +399,15 @@ namespace FedNocturne
                 }
                 if (E.IsReady() && Config.Item("UseEJFarm").GetValue<bool>())
                 {
-                    E.Cast(mob);
+                    E.CastOnUnit(mob);
                 }
             }
         }
-        private static bool EnemmylowHP(int percentHP, float range)
+        private static bool EnemyLowHP(int percentHP, float range)
         {
-            foreach (var enemmy in ObjectManager.Get<Obj_AI_Hero>())
-            {
-                if (enemmy.IsEnemy && !enemmy.IsDead)
-                {
-                    if (Vector3.Distance(ObjectManager.Player.Position, enemmy.Position) < range && ((enemmy.Health / enemmy.MaxHealth) * 100) < percentHP)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
+            return ObjectManager.Get<Obj_AI_Hero>().Where(enemmy => enemmy.IsEnemy && !enemmy.IsDead).Any(enemmy => Vector3.Distance(ObjectManager.Player.Position, enemmy.Position) < range && ((enemmy.Health/enemmy.MaxHealth)*100) < percentHP);
         }
+
         private static void Ping(Vector2 position)
         {
             if (Environment.TickCount - LastPingT < 30 * 1000) return;
@@ -471,8 +455,13 @@ namespace FedNocturne
         {
             if (!Config.Item("InterruptSpells").GetValue<bool>())
                 return;
+
             if (ObjectManager.Player.Distance(unit) < E.Range && E.IsReady() && unit.IsEnemy)
+            {
+                if (W.IsReady()) // for protect yourself
+                    W.CastOnUnit(ObjectManager.Player);
                 E.CastOnUnit(unit, true);
+            }
         }
     }
 }
