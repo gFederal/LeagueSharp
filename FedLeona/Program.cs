@@ -1,12 +1,8 @@
-﻿#region
-
+#region
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
 using LeagueSharp;
 using LeagueSharp.Common;
-using SharpDX;
 using Color = System.Drawing.Color;
 
 #endregion
@@ -51,7 +47,7 @@ namespace FedLeona
 
             IgniteSlot = Player.GetSpellSlot("SummonerDot");
             ExaustSlot = Player.GetSpellSlot("SummonerExaust");
-            
+
             E.SetSkillshot(0.25f, 85f, 2000f, false, SkillshotType.SkillshotLine);
             R.SetSkillshot(0.625f, 315f, float.MaxValue, false, SkillshotType.SkillshotCircle);
 
@@ -69,8 +65,8 @@ namespace FedLeona
             Config.AddSubMenu(new Menu("Combo", "Combo"));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseQCombo", "Use Q").SetValue(true));
             Config.SubMenu("Combo").AddItem(new MenuItem("UseWCombo", "Use W").SetValue(true));
-            Config.SubMenu("Combo").AddItem(new MenuItem("UseECombo", "Use E").SetValue(true));                                   
-            Config.SubMenu("Combo").AddItem(new MenuItem("ComboActive", "Combo!").SetValue(new KeyBind(32, KeyBindType.Press)));            
+            Config.SubMenu("Combo").AddItem(new MenuItem("UseECombo", "Use E").SetValue(true));
+            Config.SubMenu("Combo").AddItem(new MenuItem("ComboActive", "Combo!").SetValue(new KeyBind(32, KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Harass", "Harass"));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseQHarass", "Use Q").SetValue(true));
@@ -87,7 +83,7 @@ namespace FedLeona
             Config.SubMenu("Misc").AddItem(new MenuItem("AutoUnderT", "Combo Under MyTower").SetValue(false));
             Config.SubMenu("Misc").AddItem(new MenuItem("gapClose", "Auto-Knockback Gapclosers").SetValue(true));
             Config.SubMenu("Misc").AddItem(new MenuItem("stun", "Auto-Interrupt Important Spells").SetValue(true));
-            Config.SubMenu("Misc").AddItem(new MenuItem("AutoR", "Auto R when: ").SetValue(new StringList(new[] { "No", "Target Stuned", "Min Enemys", "Both" }, 3)));            
+            Config.SubMenu("Misc").AddItem(new MenuItem("AutoR", "Auto R when: ").SetValue(new StringList(new[] { "No", "Target Stuned", "Min Enemys", "Both" }, 3)));
             Config.SubMenu("Misc").AddItem(new MenuItem("MinR", "Min Enemys for (R)").SetValue<Slider>(new Slider(3, 1, 5)));
 
             Config.AddSubMenu(new Menu("Drawings", "Drawings"));
@@ -118,7 +114,7 @@ namespace FedLeona
                 }
             }
         }
-        
+
         private static void Game_OnGameUpdate(EventArgs args)
         {
             if (Player.IsDead) return;
@@ -130,13 +126,13 @@ namespace FedLeona
             else
             {
                 if (Config.Item("HarassActive").GetValue<KeyBind>().Active)
-                    Harass();                
+                    Harass();
 
                 if (Config.Item("harassToggle").GetValue<KeyBind>().Active)
                     ToggleHarass();
 
                 if (Config.Item("AutoUnderT").GetValue<bool>())
-                    AutoUnderTower();                
+                    AutoUnderTower();
 
                 if (Config.Item("AutoI").GetValue<bool>())
                     AutoIgnite();
@@ -152,7 +148,7 @@ namespace FedLeona
         private static void AutoIgnite()
         {
             var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
-            var Idamage = DamageLib.getDmg(iTarget, DamageLib.SpellType.IGNITE) * 0.80;
+            var Idamage = ObjectManager.Player.GetSummonerSpellDamage(iTarget, Damage.SummonerSpell.Ignite);
 
             if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
             {
@@ -162,7 +158,7 @@ namespace FedLeona
                     Game.Say("/l");
                 }
             }
-        }       
+        }
 
         private static void AutoUlt()
         {
@@ -207,7 +203,7 @@ namespace FedLeona
             var qTarget = SimpleTs.GetTarget(Q.Range, SimpleTs.DamageType.Magical);
             var eTarget = SimpleTs.GetTarget(E.Range, SimpleTs.DamageType.Magical);
             var wTarget = SimpleTs.GetTarget(E.Range, SimpleTs.DamageType.Magical);
-                        
+
             if (Config.Item("UseWCombo").GetValue<bool>() && (W.IsReady() && wTarget != null || eTarget != null && W.IsReady() && E.IsReady()))
             {
                 W.Cast();
@@ -221,8 +217,8 @@ namespace FedLeona
             if (qTarget != null && Config.Item("UseQCombo").GetValue<bool>() && Q.IsReady())
             {
                 Q.Cast();
-            }            
-        }        
+            }
+        }
 
         private static void Harass()
         {
@@ -231,14 +227,14 @@ namespace FedLeona
             var wTarget = SimpleTs.GetTarget(E.Range, SimpleTs.DamageType.Magical);
 
             if (eTarget != null && Config.Item("UseWHarass").GetValue<bool>() && W.IsReady() && E.IsReady())
-            {                
-                    W.Cast();
+            {
+                W.Cast();
             }
             if (eTarget != null && Config.Item("UseEHarass").GetValue<bool>() && E.IsReady())
             {
                 PredictionOutput ePred = E.GetPrediction(eTarget);
                 if (ePred.Hitchance >= HitChance.Medium)
-                E.Cast(eTarget);
+                    E.Cast(eTarget);
             }
             if (qTarget != null && Config.Item("UseQHarass").GetValue<bool>() && Q.IsReady())
             {
@@ -260,7 +256,7 @@ namespace FedLeona
             {
                 E.Cast(eTarget);
             }
-        }        
+        }
 
         private static void AntiGapcloser_OnEnemyGapcloser(ActiveGapcloser gapcloser)
         {
@@ -291,3 +287,4 @@ namespace FedLeona
         }
     }
 }
+
