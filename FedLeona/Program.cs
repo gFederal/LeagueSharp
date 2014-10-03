@@ -148,7 +148,7 @@ namespace FedLeona
         private static void AutoIgnite()
         {
             var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
-            var Idamage = Damage.GetSummonerSpellDamage(Player, iTarget, Damage.SummonerSpell.Ignite) * 0.80;
+            var Idamage = ObjectManager.Player.GetSummonerSpellDamage(iTarget, Damage.SummonerSpell.Ignite);
 
             if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
             {
