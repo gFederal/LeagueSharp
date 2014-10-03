@@ -1,10 +1,10 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-// Informações gerais sobre um assembly são controladas através do seguinte 
-// conjunto de atributos. Altere o valor destes atributos para modificar a informação
-// associada a um assembly.
+// Le informazioni generali relative a un assembly sono controllate dal seguente 
+// set di attributi. Per modificare le informazioni associate a un assembly
+// occorre quindi modificare i valori di questi attributi.
 [assembly: AssemblyTitle("FedLeona")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
@@ -14,23 +14,23 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
-// Definir ComVisible como false torna os tipos neste assembly não visíveis 
-// para componentes COM. Caso precise acessar um tipo neste assembly a partir de 
-// COM, defina o atributo ComVisible como true nesse tipo.
+// Se si imposta ComVisible su false, i tipi in questo assembly non saranno visibili 
+// ai componenti COM.  Se è necessario accedere a un tipo in questo assembly da 
+// COM, impostare su true l'attributo ComVisible per tale tipo.
 [assembly: ComVisible(false)]
 
-// O GUID a seguir é para o ID da typelib se este projeto for exposto para COM
-[assembly: Guid("a4f16d96-a93d-400b-9425-5e09668db211")]
+// Se il progetto viene esposto a COM, il GUID che segue verrà utilizzato per creare l'ID della libreria dei tipi
+[assembly: Guid("0353d60e-f338-4b13-a2a5-34e08a28efee")]
 
-// Informações de Versão para um assembly consistem nos quatro valores a seguir:
+// Le informazioni sulla versione di un assembly sono costituite dai seguenti quattro valori:
 //
-//      Versão Principal
-//      Versão Secundária 
-//      Número da Versão
-//      Revisão
+//      Numero di versione principale
+//      Numero di versione secondario 
+//      Numero build
+//      Revisione
 //
-// É possível especificar todos os valores ou usar o padrão de números da Compilação e de Revisão 
-// utilizando o '*' como mostrado abaixo:
+// È possibile specificare tutti i valori oppure impostare valori predefiniti per i numeri relativi alla revisione e alla build 
+// utilizzando l'asterisco (*) come descritto di seguito:
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
