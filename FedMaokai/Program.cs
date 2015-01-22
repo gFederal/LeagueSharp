@@ -1,12 +1,10 @@
-﻿#region
+#region
 
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using LeagueSharp;
 using LeagueSharp.Common;
-using SharpDX;
 using Color = System.Drawing.Color;
 
 #endregion
@@ -60,7 +58,7 @@ namespace FedMaokai
             Config = new Menu("Fed" + ChampionName, ChampionName, true);
 
             var targetSelectorMenu = new Menu("Target Selector", "Target Selector");
-            SimpleTs.AddToMenu(targetSelectorMenu);
+            TargetSelector.AddToMenu(targetSelectorMenu);
             Config.AddSubMenu(targetSelectorMenu);
 
             Config.AddSubMenu(new Menu("Orbwalking", "Orbwalking"));
@@ -82,7 +80,7 @@ namespace FedMaokai
             Config.SubMenu("Ganks").AddItem(new MenuItem("GanksActive", "Ganks!").SetValue(new KeyBind("X".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("Harass", "Harass"));
-            Config.SubMenu("Harass").AddItem(new MenuItem("UseQHarass", "Use Q").SetValue(true));            
+            Config.SubMenu("Harass").AddItem(new MenuItem("UseQHarass", "Use Q").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("UseEHarass", "Use E").SetValue(true));
             Config.SubMenu("Harass").AddItem(new MenuItem("ManaHarass", "Dont Harass if mana < %").SetValue(new Slider(40, 100, 0)));
             Config.SubMenu("Harass").AddItem(new MenuItem("harassToggle", "Use Harass (toggle)").SetValue<KeyBind>(new KeyBind('T', KeyBindType.Toggle)));
@@ -91,14 +89,14 @@ namespace FedMaokai
             Config.AddSubMenu(new Menu("Killsteal", "Killsteal"));
             Config.SubMenu("Killsteal").AddItem(new MenuItem("killstealQ", "Use Q-Spell to Killsteal").SetValue(true));
             Config.SubMenu("Killsteal").AddItem(new MenuItem("killstealE", "Use E-Spell to Killsteal").SetValue(true));
-            Config.SubMenu("Killsteal").AddItem(new MenuItem("killstealR", "Use R-Spell to Killsteal").SetValue(true));      
+            Config.SubMenu("Killsteal").AddItem(new MenuItem("killstealR", "Use R-Spell to Killsteal").SetValue(true));
 
             Config.AddSubMenu(new Menu("Farm", "Farm"));
             Config.SubMenu("Farm").AddItem(new MenuItem("UseQFarm", "Use Q Farm").SetValue(true));
             Config.SubMenu("Farm").AddItem(new MenuItem("UseEFarm", "Use E Farm").SetValue(true));
             Config.SubMenu("Farm").AddItem(new MenuItem("ManaFarm", "Min Mana").SetValue(new Slider(60, 100, 0)));
             Config.SubMenu("Farm").AddItem(new MenuItem("waveNumQ", "Minions to hit with Q").SetValue<Slider>(new Slider(3, 1, 10)));
-            Config.SubMenu("Farm").AddItem(new MenuItem("waveNumE", "Minions to hit with E").SetValue<Slider>(new Slider(4, 1, 10)));            
+            Config.SubMenu("Farm").AddItem(new MenuItem("waveNumE", "Minions to hit with E").SetValue<Slider>(new Slider(4, 1, 10)));
             Config.SubMenu("Farm").AddItem(new MenuItem("LaneClearActive", "LaneClear!").SetValue(new KeyBind("V".ToCharArray()[0], KeyBindType.Press)));
 
             Config.AddSubMenu(new Menu("JungleFarm", "JungleFarm"));
@@ -126,21 +124,21 @@ namespace FedMaokai
             Config.AddSubMenu(new Menu("Drawings", "Drawings"));
             Config.SubMenu("Drawings").AddItem(new MenuItem("QRange", "Q range").SetValue(new Circle(false, Color.FromArgb(255, 255, 255, 255))));
             Config.SubMenu("Drawings").AddItem(new MenuItem("WRange", "W range").SetValue(new Circle(false, Color.FromArgb(255, 255, 255, 255))));
-            Config.SubMenu("Drawings").AddItem(new MenuItem("ERange", "E range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));            
+            Config.SubMenu("Drawings").AddItem(new MenuItem("ERange", "E range").SetValue(new Circle(true, Color.FromArgb(255, 255, 255, 255))));
             Config.SubMenu("Drawings").AddItem(dmgAfterComboItem);
             Config.AddToMainMenu();
 
             Game.OnGameUpdate += Game_OnGameUpdate;
-            Drawing.OnDraw += Drawing_OnDraw;            
+            Drawing.OnDraw += Drawing_OnDraw;
             AntiGapcloser.OnEnemyGapcloser += AntiGapcloser_OnEnemyGapcloser;
-            Interrupter.OnPossibleToInterrupt += Interrupter_OnPossibleToInterrupt;           
+            Interrupter.OnPossibleToInterrupt += Interrupter_OnPossibleToInterrupt;
 
             Game.PrintChat("<font color=\"#00BFFF\">Fed" + ChampionName + " -</font> <font color=\"#FFFFFF\">Loaded!</font>");
 
-        }        
+        }
 
         private static void Drawing_OnDraw(EventArgs args)
-        {  
+        {
             foreach (var spell in SpellList)
             {
                 var menuItem = Config.Item(spell.Slot + "Range").GetValue<Circle>();
@@ -168,7 +166,7 @@ namespace FedMaokai
                     Ganks();
 
                 if (Config.Item("harassToggle").GetValue<KeyBind>().Active)
-                    ToggleHarass();                
+                    ToggleHarass();
 
                 if (Config.Item("LaneClearActive").GetValue<KeyBind>().Active)
                     LaneClear();
@@ -183,18 +181,18 @@ namespace FedMaokai
                     AutoSmite();
 
                 if (Config.Item("AutoI").GetValue<bool>())
-                    AutoIgnite();  
-            }  
+                    AutoIgnite();
+            }
         }
 
         private static void AutoIgnite()
         {
-            var iTarget = SimpleTs.GetTarget(600, SimpleTs.DamageType.True);
+            var iTarget = TargetSelector.GetTarget(600, TargetSelector.DamageType.True);
             var Idamage = ObjectManager.Player.GetSummonerSpellDamage(iTarget, Damage.SummonerSpell.Ignite) * 0.90;
 
-            if (IgniteSlot != SpellSlot.Unknown && Player.SummonerSpellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
+            if (IgniteSlot != SpellSlot.Unknown && Player.Spellbook.CanUseSpell(IgniteSlot) == SpellState.Ready && iTarget.Health < Idamage)
             {
-                Player.SummonerSpellbook.CastSpell(IgniteSlot, iTarget);
+                Player.Spellbook.CastSpell(IgniteSlot, iTarget);
                 if (Config.Item("laugh").GetValue<bool>())
                 {
                     Game.Say("/l");
@@ -208,7 +206,7 @@ namespace FedMaokai
             {
                 float[] SmiteDmg = { 20 * Player.Level + 370, 30 * Player.Level + 330, 40 * Player.Level + 240, 50 * Player.Level + 100 };
                 string[] MonsterNames = { "LizardElder", "AncientGolem", "Worm", "Dragon" };
-                var vMinions = MinionManager.GetMinions(Player.ServerPosition, Player.SummonerSpellbook.Spells.FirstOrDefault(
+                var vMinions = MinionManager.GetMinions(Player.ServerPosition, Player.Spellbook.Spells.FirstOrDefault(
                     spell => spell.Name.Contains("smite")).SData.CastRange[0], MinionTypes.All, MinionTeam.NotAlly, MinionOrderTypes.Health);
                 foreach (var vMinion in vMinions)
                 {
@@ -217,11 +215,11 @@ namespace FedMaokai
                         && !Player.IsDead
                         && !Player.IsStunned
                         && SmiteSlot != SpellSlot.Unknown
-                        && Player.SummonerSpellbook.CanUseSpell(SmiteSlot) == SpellState.Ready)
+                        && Player.Spellbook.CanUseSpell(SmiteSlot) == SpellState.Ready)
                     {
                         if ((vMinion.Health < SmiteDmg.Max()) && (MonsterNames.Any(name => vMinion.BaseSkinName.StartsWith(name))))
                         {
-                            Player.SummonerSpellbook.CastSpell(SmiteSlot, vMinion);
+                            Player.Spellbook.CastSpell(SmiteSlot, vMinion);
 
                             if (Config.Item("laugh").GetValue<bool>())
                             {
@@ -233,10 +231,10 @@ namespace FedMaokai
                 }
             }
         }
-        
+
         private static void AutoUlt()
         {
-            int inimigos = Utility.CountEnemysInRange(650);
+            int inimigos = Utility.CountEnemysInRange(Player, 650);
 
             var RMana = Config.Item("ManaR").GetValue<Slider>().Value;
             var MPercentR = Player.Mana * 100 / Player.MaxMana;
@@ -250,7 +248,7 @@ namespace FedMaokai
 
         private static void AutoUnderTower()
         {
-            var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
+            var wTarget = TargetSelector.GetTarget(W.Range + W.Width, TargetSelector.DamageType.Magical);
 
             if (Utility.UnderTurret(wTarget, false) && W.IsReady())
             {
@@ -264,18 +262,18 @@ namespace FedMaokai
 
         private static void Combo()
         {
-            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);
-            var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
-            var eTarget = SimpleTs.GetTarget(E.Range + E.Width, SimpleTs.DamageType.Magical);
+            var qTarget = TargetSelector.GetTarget(Q.Range + Q.Width, TargetSelector.DamageType.Magical);
+            var wTarget = TargetSelector.GetTarget(W.Range + W.Width, TargetSelector.DamageType.Magical);
+            var eTarget = TargetSelector.GetTarget(E.Range + E.Width, TargetSelector.DamageType.Magical);
 
             if (wTarget != null && Config.Item("UseWCombo").GetValue<bool>() && W.IsReady())
             {
-                    W.Cast(wTarget);
+                W.Cast(wTarget);
             }
             if (qTarget != null && Config.Item("UseQCombo").GetValue<bool>() && Q.IsReady())
             {
                 if (!qTarget.IsVisible)
-                Q.Cast(qTarget);
+                    Q.Cast(qTarget);
             }
             if (eTarget != null && Config.Item("UseECombo").GetValue<bool>() && E.IsReady())
             {
@@ -289,9 +287,9 @@ namespace FedMaokai
 
         private static void Ganks()
         {
-            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);
-            var wTarget = SimpleTs.GetTarget(W.Range + W.Width, SimpleTs.DamageType.Magical);
-            var eTarget = SimpleTs.GetTarget(E.Range + E.Width, SimpleTs.DamageType.Magical);
+            var qTarget = TargetSelector.GetTarget(Q.Range + Q.Width, TargetSelector.DamageType.Magical);
+            var wTarget = TargetSelector.GetTarget(W.Range + W.Width, TargetSelector.DamageType.Magical);
+            var eTarget = TargetSelector.GetTarget(E.Range + E.Width, TargetSelector.DamageType.Magical);
 
             if (qTarget != null && Config.Item("UseQGank").GetValue<bool>() && Q.IsReady())
             {
@@ -304,34 +302,34 @@ namespace FedMaokai
             if (eTarget != null && Config.Item("UseEGank").GetValue<bool>() && E.IsReady())
             {
                 E.Cast(eTarget);
-            }           
-        }       
+            }
+        }
 
         private static void Harass()
         {
-            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);
-            var eTarget = SimpleTs.GetTarget(E.Range + E.Width, SimpleTs.DamageType.Magical);
+            var qTarget = TargetSelector.GetTarget(Q.Range + Q.Width, TargetSelector.DamageType.Magical);
+            var eTarget = TargetSelector.GetTarget(E.Range + E.Width, TargetSelector.DamageType.Magical);
 
             if (qTarget != null && Config.Item("UseQHarass").GetValue<bool>() && Q.IsReady())
             {
                 if (!qTarget.IsVisible)
-                Q.Cast(qTarget);
+                    Q.Cast(qTarget);
             }
             if (eTarget != null && Config.Item("UseEHarass").GetValue<bool>() && E.IsReady())
             {
-                    E.Cast(eTarget);                
+                E.Cast(eTarget);
             }
         }
 
         private static void ToggleHarass()
         {
-            var qTarget = SimpleTs.GetTarget(Q.Range + Q.Width, SimpleTs.DamageType.Magical);
-            var eTarget = SimpleTs.GetTarget(E.Range + E.Width, SimpleTs.DamageType.Magical);
+            var qTarget = TargetSelector.GetTarget(Q.Range + Q.Width, TargetSelector.DamageType.Magical);
+            var eTarget = TargetSelector.GetTarget(E.Range + E.Width, TargetSelector.DamageType.Magical);
 
             if (qTarget != null && Config.Item("UseQHarass").GetValue<bool>() && Q.IsReady())
             {
                 if (!qTarget.IsVisible)
-                Q.Cast(qTarget);
+                    Q.Cast(qTarget);
             }
             if (eTarget != null && Config.Item("UseEHarass").GetValue<bool>() && E.IsReady())
             {
@@ -341,23 +339,23 @@ namespace FedMaokai
 
         private static void LaneClear()
         {
-            var allMinionsQ = MinionManager.GetMinions(Player.ServerPosition, Q.Range + Q.Width +30, MinionTypes.All);
+            var allMinionsQ = MinionManager.GetMinions(Player.ServerPosition, Q.Range + Q.Width + 30, MinionTypes.All);
             var allMinionsE = MinionManager.GetMinions(Player.ServerPosition, E.Range + E.Width + 30, MinionTypes.All);
 
             var FMana = Config.Item("ManaFarm").GetValue<Slider>().Value;
             var MPercent = Player.Mana * 100 / Player.MaxMana;
 
-            var fle = E.GetCircularFarmLocation(allMinionsE, E.Width);            
+            var fle = E.GetCircularFarmLocation(allMinionsE, E.Width);
             var flq = Q.GetLineFarmLocation(allMinionsQ, Q.Width);
 
             if (Config.Item("UseQFarm").GetValue<bool>() && Q.IsReady() && flq.MinionsHit >= Config.Item("waveNumQ").GetValue<Slider>().Value && flq.MinionsHit >= 2 && MPercent >= FMana)
-            {               
-                    Q.Cast(flq.Position);
+            {
+                Q.Cast(flq.Position);
             }
             if (Config.Item("UseEFarm").GetValue<bool>() && E.IsReady() && fle.MinionsHit >= Config.Item("waveNumE").GetValue<Slider>().Value && fle.MinionsHit >= 3 && MPercent >= FMana)
             {
-                 E.Cast(fle.Position);
-            }            
+                E.Cast(fle.Position);
+            }
         }
 
         private static void JungleFarm()
